@@ -34,9 +34,13 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
  * directory inodes.
  */
 abstract class INode implements Comparable<byte[]> {
+  //文件/目录名称
   protected byte[] name;
+  //父目录
   protected INodeDirectory parent;
+  //最近一次的修改时间
   protected long modificationTime;
+  //最近访问时间
   protected long accessTime;
 
   /** Simple wrapper for two counters : 
@@ -60,6 +64,7 @@ abstract class INode implements Comparable<byte[]> {
   //Other codes should not modify it.
   private long permission;
 
+  //使用long整数的64位保存，分3段保存，分别为mode模式控制访问权限，所属组，所属用户
   private static enum PermissionStatusFormat {
     MODE(0, 16),
     GROUP(MODE.OFFSET + MODE.LENGTH, 25),
@@ -75,6 +80,7 @@ abstract class INode implements Comparable<byte[]> {
       MASK = ((-1L) >>> (64 - LENGTH)) << OFFSET;
     }
 
+    //与掩码计算并右移得到用户标识符
     long retrieve(long record) {
       return (record & MASK) >>> OFFSET;
     }
@@ -118,6 +124,7 @@ abstract class INode implements Comparable<byte[]> {
 
   /**
    * Check whether this is the root inode.
+   * 根节点的判断标准是名字长度为0
    */
   boolean isRoot() {
     return name.length == 0;
@@ -140,6 +147,7 @@ abstract class INode implements Comparable<byte[]> {
   /** Get user name */
   public String getUserName() {
     int n = (int)PermissionStatusFormat.USER.retrieve(permission);
+    //根据整形标识符，SerialNumberManager对象中取出，避免存储字符串消耗大量内存
     return SerialNumberManager.INSTANCE.getUser(n);
   }
   /** Set user */
@@ -195,6 +203,7 @@ abstract class INode implements Comparable<byte[]> {
   
   /**
    * Get the quota set for this inode
+   * 获取配额分配相关的方法
    * @return the quota if it is set; -1 otherwise
    */
   long getNsQuota() {
@@ -340,6 +349,7 @@ abstract class INode implements Comparable<byte[]> {
     return path.split(Path.SEPARATOR);
   }
 
+  //移除自身节点方法
   boolean removeNode() {
     if (parent == null) {
       return false;
