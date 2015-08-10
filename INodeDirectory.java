@@ -35,6 +35,7 @@ class INodeDirectory extends INode {
   protected static final int DEFAULT_FILES_PER_DIRECTORY = 5;
   final static String ROOT_NAME = "";
 
+  //保存子目录或子文件
   private List<INode> children;
 
   INodeDirectory(String name, PermissionStatus permissions) {
@@ -69,8 +70,10 @@ class INodeDirectory extends INode {
     return true;
   }
 
+  //移除节点方法
   INode removeChild(INode node) {
     assert children != null;
+    //用二分法寻找文件节点
     int low = Collections.binarySearch(children, node.name);
     if (low >= 0) {
       return children.remove(low);
@@ -215,6 +218,7 @@ class INodeDirectory extends INode {
     if (inheritPermission) {
       FsPermission p = getFsPermission();
       //make sure the  permission has wx for the user
+      //判断用户是否有写权限
       if (!p.getUserAction().implies(FsAction.WRITE_EXECUTE)) {
         p = new FsPermission(p.getUserAction().or(FsAction.WRITE_EXECUTE),
             p.getGroupAction(), p.getOtherAction());
@@ -225,10 +229,12 @@ class INodeDirectory extends INode {
     if (children == null) {
       children = new ArrayList<INode>(DEFAULT_FILES_PER_DIRECTORY);
     }
+    //二分查找
     int low = Collections.binarySearch(children, node.name);
     if(low >= 0)
       return null;
     node.parent = this;
+    //在孩子列表中进行添加
     children.add(-low - 1, node);
     // update modification time of the parent directory
     setModificationTime(node.getModificationTime());
@@ -371,14 +377,19 @@ class INodeDirectory extends INode {
     return children;
   }
 
+  //递归删除文件目录下的所有block块
   int collectSubtreeBlocksAndClear(List<Block> v) {
     int total = 1;
+    //直到是空目录的情况，才直接返回
     if (children == null) {
       return total;
     }
     for (INode child : children) {
+      //递归删除
       total += child.collectSubtreeBlocksAndClear(v);
     }
+    
+    //删除完毕之后，置为空操作，并返回文件数计数结果
     parent = null;
     children = null;
     return total;
