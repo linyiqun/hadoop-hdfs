@@ -30,14 +30,16 @@ class INodeFile extends INode {
   static final FsPermission UMASK = FsPermission.createImmutable((short)0111);
 
   //Number of bits for Block size
+  //48位存储block数据块的大小
   static final short BLOCKBITS = 48;
 
   //Header mask 64-bit representation
   //Format: [16 bits for replication][48 bits for PreferredBlockSize]
+  //前16位保存副本系数,后48位保存优先块大小,下面的headermask做计算时用
   static final long HEADERMASK = 0xffffL << BLOCKBITS;
 
   protected long header;
-
+  //文件数据block块
   protected BlockInfo blocks[] = null;
 
   INodeFile(PermissionStatus permissions,
@@ -77,6 +79,7 @@ class INodeFile extends INode {
   /**
    * Get block replication for the file 
    * @return block replication value
+   * 得到副本系数通过与掩码计算并右移48位
    */
   public short getReplication() {
     return (short) ((header & HEADERMASK) >> BLOCKBITS);
@@ -113,6 +116,7 @@ class INodeFile extends INode {
 
   /**
    * add a block to the block list
+   * 往block列表中添加block块
    */
   void addBlock(BlockInfo newblock) {
     if (this.blocks == null) {
@@ -134,6 +138,7 @@ class INodeFile extends INode {
     this.blocks[idx] = blk;
   }
 
+  //将自身拥有的block块加入到参数block列表中
   int collectSubtreeBlocksAndClear(List<Block> v) {
     parent = null;
     for (Block blk : blocks) {
@@ -159,7 +164,9 @@ class INodeFile extends INode {
 
   @Override
   DirCounts spaceConsumedInTree(DirCounts counts) {
+    //命名空间消耗加1
     counts.nsCount += 1;
+    //累加磁盘空间消耗大小
     counts.dsCount += diskspaceConsumed();
     return counts;
   }
@@ -168,6 +175,7 @@ class INodeFile extends INode {
     return diskspaceConsumed(blocks);
   }
   
+  //计算磁盘空间消耗的大小
   long diskspaceConsumed(Block[] blkArr) {
     long size = 0;
     for (Block blk : blkArr) {
@@ -177,11 +185,14 @@ class INodeFile extends INode {
     }
     /* If the last block is being written to, use prefferedBlockSize
      * rather than the actual block size.
+     * 如果最后一个块正在被写,用内部设置的prefferedBlockSize的值做替换
      */
     if (blkArr.length > 0 && blkArr[blkArr.length-1] != null && 
         isUnderConstruction()) {
       size += getPreferredBlockSize() - blocks[blocks.length-1].getNumBytes();
     }
+    
+    //每个块乘以相应的副本数
     return size * getReplication();
   }
   
@@ -194,7 +205,8 @@ class INodeFile extends INode {
     }
     return blocks[blocks.length - 2];
   }
-
+  
+  //使当前文件变为正在操作的文件
   INodeFileUnderConstruction toINodeFileUnderConstruction(
       String clientName, String clientMachine, DatanodeDescriptor clientNode
       ) throws IOException {
@@ -209,6 +221,7 @@ class INodeFile extends INode {
 
   /**
    * Return the last block in this file, or null if there are no blocks.
+   * 获取文件的最后一个block块
    */
   Block getLastBlock() {
     if (this.blocks == null || this.blocks.length == 0)
