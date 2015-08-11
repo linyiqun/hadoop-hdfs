@@ -107,6 +107,7 @@ class INodeFileUnderConstruction extends INodeFile {
 
   /**
    * add this target if it does not already exists
+   * 添加最后一个block块的数据流管道成员节点
    */
   void addTarget(DatanodeDescriptor node) {
     if (this.targets == null) {
@@ -114,12 +115,14 @@ class INodeFileUnderConstruction extends INodeFile {
     }
 
     for (int j = 0; j < this.targets.length; j++) {
+      //如果存在这样的节点,则则返回
       if (this.targets[j].equals(node)) {
         return;  // target already exists
       }
     }
       
     // allocate new data structure to store additional target
+    //申请多一个单位的大小,把原先的对象拷贝到新的节点数组中
     DatanodeDescriptor[] newt = new DatanodeDescriptor[targets.length + 1];
     for (int i = 0; i < targets.length; i++) {
       newt[i] = this.targets[i];
@@ -147,6 +150,7 @@ class INodeFileUnderConstruction extends INodeFile {
   /**
    * remove a block from the block list. This block should be
    * the last one on the list.
+   * 在文件所拥有的block列表中移动掉block,这个block块应该是最后一个block块
    */
   void removeBlock(Block oldblock) throws IOException {
     if (blocks == null) {
@@ -154,6 +158,7 @@ class INodeFileUnderConstruction extends INodeFile {
     }
     int size_1 = blocks.length - 1;
     if (!blocks[size_1].equals(oldblock)) {
+      //如果不是最末尾一个块则将会抛异常
       throw new IOException("Trying to delete non-last block " + oldblock);
     }
 
@@ -163,9 +168,11 @@ class INodeFileUnderConstruction extends INodeFile {
     blocks = newlist;
     
     // Remove the block locations for the last block.
+    // 最后一个数据块所对应的节点组就被置为空了
     targets = null;
   }
-
+  
+  //设置新的block块,并且为最后的块赋值新的targes节点
   synchronized void setLastBlock(BlockInfo newblock, DatanodeDescriptor[] newtargets
       ) throws IOException {
     if (blocks == null || blocks.length == 0) {
@@ -183,7 +190,8 @@ class INodeFileUnderConstruction extends INodeFile {
       throw new IOException("Trying to update an internal block of " +
                             "pending file " + this);
     }
-
+    
+    //如果新的block时间比老block的还小的话,则进行警告
     if (oldLast.getGenerationStamp() > newblock.getGenerationStamp()) {
       NameNode.stateChangeLog.warn(
         "Updating last block " + oldLast + " of inode " +
@@ -193,6 +201,7 @@ class INodeFileUnderConstruction extends INodeFile {
 
     blocks[blocks.length - 1] = newblock;
     setTargets(newtargets);
+    //重置租约恢复时间,这样操作的话,下次租约检测时将会过期
     lastRecoveryTime = 0;
   }
 
@@ -225,10 +234,12 @@ class INodeFileUnderConstruction extends INodeFile {
   /**
    * Update lastRecoveryTime if expired.
    * @return true if lastRecoveryTimeis updated. 
+   * 设置最近的恢复时间
    */
   synchronized boolean setLastRecoveryTime(long now) {
     boolean expired = now - lastRecoveryTime > NameNode.LEASE_RECOVER_PERIOD;
     if (expired) {
+      //如果过期了则设置为传入的当前时间
       lastRecoveryTime = now;
     }
     return expired;
