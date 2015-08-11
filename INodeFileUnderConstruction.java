@@ -25,14 +25,20 @@ import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.namenode.BlocksMap.BlockInfo;
 
-
+//处于构建状态的文件节点
 class INodeFileUnderConstruction extends INodeFile {
+  //写文件的客户端名称,也是这个租约的持有者
   String clientName;         // lease holder
+  //客户端所在的主机
   private final String clientMachine;
+  //如果客户端同样存在于集群中,则记录所在的节点
   private final DatanodeDescriptor clientNode; // if client is a cluster node too.
-
+  
+  //租约恢复时的节点
   private int primaryNodeIndex = -1; //the node working on lease recovery
+  //最后一个block块所处的节点组,又名数据流管道成员
   private DatanodeDescriptor[] targets = null;   //locations for last block
+  //最近租约恢复时间
   private long lastRecoveryTime = 0;
   
   INodeFileUnderConstruction(PermissionStatus permissions,
@@ -48,7 +54,7 @@ class INodeFileUnderConstruction extends INodeFile {
     this.clientMachine = clientMachine;
     this.clientNode = clientNode;
   }
-
+  //传入参数构建正在操作的文件对象
   public INodeFileUnderConstruction(byte[] name,
                              short blockReplication,
                              long modificationTime,
