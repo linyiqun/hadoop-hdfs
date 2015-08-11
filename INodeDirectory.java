@@ -35,7 +35,7 @@ class INodeDirectory extends INode {
   protected static final int DEFAULT_FILES_PER_DIRECTORY = 5;
   final static String ROOT_NAME = "";
 
-  //±£´æ×ÓÄ¿Â¼»ò×ÓÎÄ¼ş
+  //ä¿å­˜å­ç›®å½•æˆ–å­æ–‡ä»¶
   private List<INode> children;
 
   INodeDirectory(String name, PermissionStatus permissions) {
@@ -70,10 +70,10 @@ class INodeDirectory extends INode {
     return true;
   }
 
-  //ÒÆ³ı½Úµã·½·¨
+  //ç§»é™¤èŠ‚ç‚¹æ–¹æ³•
   INode removeChild(INode node) {
     assert children != null;
-    //ÓÃ¶ş·Ö·¨Ñ°ÕÒÎÄ¼ş½Úµã
+    //ç”¨äºŒåˆ†æ³•å¯»æ‰¾æ–‡ä»¶èŠ‚ç‚¹
     int low = Collections.binarySearch(children, node.name);
     if (low >= 0) {
       return children.remove(low);
@@ -162,6 +162,7 @@ class INodeDirectory extends INode {
    * @param existing INode array to fill with existing INodes
    * @return number of existing INodes in the path
    */
+   //è·å–ç»™å®šè·¯å¾„ä¸Šçš„INOdeèŠ‚ç‚¹
   int getExistingPathINodes(byte[][] components, INode[] existing) {
     assert compareBytes(this.name, components[0]) == 0 :
       "Incorrect name " + getLocalName() + " expected " + components[0];
@@ -218,7 +219,7 @@ class INodeDirectory extends INode {
     if (inheritPermission) {
       FsPermission p = getFsPermission();
       //make sure the  permission has wx for the user
-      //ÅĞ¶ÏÓÃ»§ÊÇ·ñÓĞĞ´È¨ÏŞ
+      //åˆ¤æ–­ç”¨æˆ·æ˜¯å¦æœ‰å†™æƒé™
       if (!p.getUserAction().implies(FsAction.WRITE_EXECUTE)) {
         p = new FsPermission(p.getUserAction().or(FsAction.WRITE_EXECUTE),
             p.getGroupAction(), p.getOtherAction());
@@ -229,12 +230,12 @@ class INodeDirectory extends INode {
     if (children == null) {
       children = new ArrayList<INode>(DEFAULT_FILES_PER_DIRECTORY);
     }
-    //¶ş·Ö²éÕÒ
+    //äºŒåˆ†æŸ¥æ‰¾
     int low = Collections.binarySearch(children, node.name);
     if(low >= 0)
       return null;
     node.parent = this;
-    //ÔÚº¢×ÓÁĞ±íÖĞ½øĞĞÌí¼Ó
+    //åœ¨å­©å­åˆ—è¡¨ä¸­è¿›è¡Œæ·»åŠ 
     children.add(-low - 1, node);
     // update modification time of the parent directory
     setModificationTime(node.getModificationTime());
@@ -377,19 +378,19 @@ class INodeDirectory extends INode {
     return children;
   }
 
-  //µİ¹éÉ¾³ıÎÄ¼şÄ¿Â¼ÏÂµÄËùÓĞblock¿é
+  //é€’å½’åˆ é™¤æ–‡ä»¶ç›®å½•ä¸‹çš„æ‰€æœ‰blockå—
   int collectSubtreeBlocksAndClear(List<Block> v) {
     int total = 1;
-    //Ö±µ½ÊÇ¿ÕÄ¿Â¼µÄÇé¿ö£¬²ÅÖ±½Ó·µ»Ø
+    //ç›´åˆ°æ˜¯ç©ºç›®å½•çš„æƒ…å†µï¼Œæ‰ç›´æ¥è¿”å›
     if (children == null) {
       return total;
     }
     for (INode child : children) {
-      //µİ¹éÉ¾³ı
+      //é€’å½’åˆ é™¤
       total += child.collectSubtreeBlocksAndClear(v);
     }
     
-    //É¾³ıÍê±ÏÖ®ºó£¬ÖÃÎª¿Õ²Ù×÷£¬²¢·µ»ØÎÄ¼şÊı¼ÆÊı½á¹û
+    //åˆ é™¤å®Œæ¯•ä¹‹åï¼Œç½®ä¸ºç©ºæ“ä½œï¼Œå¹¶è¿”å›æ–‡ä»¶æ•°è®¡æ•°ç»“æœ
     parent = null;
     children = null;
     return total;
