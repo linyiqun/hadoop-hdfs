@@ -24,15 +24,20 @@ import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 
 /**
  * Directory INode class that has a quota restriction
+ * 存在配额限制的目录节点,继承自目录节点
  */
 class INodeDirectoryWithQuota extends INodeDirectory {
+  //命名空间配额
   private long nsQuota; /// NameSpace quota
+  //名字空间计数
   private long nsCount;
+  //磁盘空间配额
   private long dsQuota; /// disk space quota
+  //磁盘空间占用大小
   private long diskspace;
   
   /** Convert an existing directory inode to one with the given quota
-   * 
+   *  给定目录,通过传入配额限制将之转为配额目录
    * @param nsQuota Namespace quota to be assigned to this inode
    * @param dsQuota Diskspace quota to be assigned to this indoe
    * @param other The other inode from which all other properties are copied
@@ -55,6 +60,7 @@ class INodeDirectoryWithQuota extends INodeDirectory {
     super(permissions, modificationTime);
     this.nsQuota = nsQuota;
     this.dsQuota = dsQuota;
+    //初始化时,命名空间计数为1
     this.nsCount = 1;
   }
   
@@ -83,7 +89,7 @@ class INodeDirectoryWithQuota extends INodeDirectory {
   }
   
   /** Set this directory's quota
-   * 
+   *  设置目录的配额
    * @param nsQuota Namespace quota to be set
    * @param dsQuota diskspace quota to be set
    *                                
@@ -135,13 +141,16 @@ class INodeDirectoryWithQuota extends INodeDirectory {
     this.diskspace = diskspace;
   }
   
-  /** Verify if the namespace count disk space satisfies the quota restriction 
+  /** Verify if the namespace count disk space satisfies the quota restriction
+   * 给定一定的误差限制,验证命名空间计数和磁盘空间是否使用超出相应的配额限制,超出则抛异常
    * @throws QuotaExceededException if the given quota is less than the count
    */
   void verifyQuota(long nsDelta, long dsDelta) throws QuotaExceededException {
+    //根据误差值计算新的计数值
     long newCount = nsCount + nsDelta;
     long newDiskspace = diskspace + dsDelta;
     if (nsDelta>0 || dsDelta>0) {
+      //判断新的值是否超出配额的值大小
       if (nsQuota >= 0 && nsQuota < newCount) {
         throw new NSQuotaExceededException(nsQuota, newCount);
       }
