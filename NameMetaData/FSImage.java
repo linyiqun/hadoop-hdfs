@@ -66,15 +66,16 @@ import org.apache.hadoop.io.Writable;
 
 /**
  * FSImage handles checkpointing and logging of the namespace edits.
- * 
+ * fsImage镜像类
  */
 public class FSImage extends Storage {
-
+  //标准时间格式
   private static final SimpleDateFormat DATE_FORM =
     new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
   //
   // The filenames used for storing the images
+  // 在命名空间镜像中可能用的几种名称
   //
   enum NameNodeFile {
     IMAGE     ("fsimage"),
@@ -89,12 +90,14 @@ public class FSImage extends Storage {
   }
 
   // checkpoint states
+  // 检查点击几种状态
   enum CheckpointStates{START, ROLLED_EDITS, UPLOAD_START, UPLOAD_DONE; }
   /**
    * Implementation of StorageDirType specific to namenode storage
    * A Storage directory could be of type IMAGE which stores only fsimage,
    * or of type EDITS which stores edits or of type IMAGE_AND_EDITS which 
    * stores both fsimage and edits.
+   * 名字节点目录存储类型
    */
   static enum NameNodeDirType implements StorageDirType {
     UNDEFINED,
@@ -164,6 +167,7 @@ public class FSImage extends Storage {
 
   /**
    * Represents an Image (image and edit file).
+   * 通过构造函数从镜像目录文件中恢复
    */
   public FSImage(File imageDir) throws IOException {
     this();
@@ -174,6 +178,7 @@ public class FSImage extends Storage {
     setStorageDirectories(dirs, editsDirs);
   }
   
+  //设置存储目录路径
   void setStorageDirectories(Collection<File> fsNameDirs,
                         Collection<File> fsEditsDirs
                              ) throws IOException {
@@ -183,12 +188,15 @@ public class FSImage extends Storage {
     for (File dirName : fsNameDirs) {
       boolean isAlsoEdits = false;
       for (File editsDirName : fsEditsDirs) {
+      	//如果遍历到既是image类型又是edit类型则进行标记
         if (editsDirName.compareTo(dirName) == 0) {
           isAlsoEdits = true;
           fsEditsDirs.remove(editsDirName);
           break;
         }
       }
+      
+      //根据isAlsoEdits标记进行设置目录类型
       NameNodeDirType dirType = (isAlsoEdits) ?
                           NameNodeDirType.IMAGE_AND_EDITS :
                           NameNodeDirType.IMAGE;
@@ -196,6 +204,7 @@ public class FSImage extends Storage {
     }
     
     // Add edits dirs if they are different from name dirs
+    //额外添加只是edit类型的目录路径
     for (File dirName : fsEditsDirs) {
       addStorageDir(new StorageDirectory(dirName, NameNodeDirType.EDITS)); 
     }
@@ -225,6 +234,7 @@ public class FSImage extends Storage {
     removedStorageDirs.add(sd);
   }
 
+  //获取编辑日志文件,传入存储目录
   File getEditFile(StorageDirectory sd) {
     return getImageFile(sd, NameNodeFile.EDITS);
   }
@@ -257,8 +267,10 @@ public class FSImage extends Storage {
    * Perform fs state transition if necessary depending on the namespace info.
    * Read storage info. 
    * 
-   * @param dataDirs
-   * @param startOpt startup option
+   * 分析存储目录,从早期的事物状态中恢复,不过这需要依赖命名空间信息
+   * 
+   * @param dataDirs 目录路径
+   * @param startOpt startup option 启动的参数啊
    * @throws IOException
    * @return true if the image needs to be saved or false otherwise
    */
@@ -270,10 +282,12 @@ public class FSImage extends Storage {
       "NameNode formatting should be performed before reading the image";
     
     // none of the data dirs exist
+    // 没有任何相应目录存在的情况下抛异常
     if (dataDirs.size() == 0 || editsDirs.size() == 0)  
       throw new IOException(
         "All specified directories are not accessible or do not exist.");
     
+    //如果事先没有checkpoint镜像检查点文件存在的话,则抛异常
     if(startOpt == StartupOption.IMPORT 
         && (checkpointDirs == null || checkpointDirs.isEmpty()))
       throw new IOException("Cannot import image from a checkpoint. "
@@ -290,9 +304,11 @@ public class FSImage extends Storage {
     Map<StorageDirectory, StorageState> dataDirStates = 
              new HashMap<StorageDirectory, StorageState>();
     boolean isFormatted = false;
+    //遍历目录列表,检查每个目录的状态是否可用
     for (Iterator<StorageDirectory> it = 
                       dirIterator(); it.hasNext();) {
       StorageDirectory sd = it.next();
+      //存储状态变量
       StorageState curState;
       try {
         curState = sd.analyzeStorage(startOpt);
@@ -307,6 +323,7 @@ public class FSImage extends Storage {
         case NORMAL:
           break;
         default:  // recovery is possible
+          //如果状态不是前面的几种状态,可以进行recover恢复
           sd.doRecover(curState);      
         }
         if (curState != StorageState.NOT_FORMATTED 
@@ -314,6 +331,8 @@ public class FSImage extends Storage {
           sd.read(); // read and verify consistency with other directories
           isFormatted = true;
         }
+        
+        //如果文件系统在之前已经被格式化了,则不允许被导入新的镜像,因为之前已经存在一个
         if (startOpt == StartupOption.IMPORT && isFormatted)
           // import of a checkpoint is allowed only into empty image directories
           throw new IOException("Cannot import image from a checkpoint. " 
@@ -331,6 +350,8 @@ public class FSImage extends Storage {
     if (layoutVersion < LAST_PRE_UPGRADE_LAYOUT_VERSION) {
       checkVersionUpgradable(layoutVersion);
     }
+    
+    //在执行操作的时候,判断一下版本号是否已经到了最新
     if (startOpt != StartupOption.UPGRADE
           && layoutVersion < LAST_PRE_UPGRADE_LAYOUT_VERSION
           && layoutVersion != FSConstants.LAYOUT_VERSION)
@@ -342,6 +363,7 @@ public class FSImage extends Storage {
     verifyDistributedUpgradeProgress(startOpt);
 
     // 2. Format unformatted dirs.
+    // 格式化之前没有格式化的操作
     this.checkpointTime = 0L;
     for (Iterator<StorageDirectory> it = 
                      dirIterator(); it.hasNext();) {
@@ -353,6 +375,7 @@ public class FSImage extends Storage {
       case NOT_FORMATTED:
         LOG.info("Storage directory " + sd.getRoot() + " is not formatted.");
         LOG.info("Formatting ...");
+        // 格式化目录,就是清空目录操作
         sd.clearDirectory(); // create empty currrent dir
         break;
       default:
@@ -361,6 +384,7 @@ public class FSImage extends Storage {
     }
 
     // 3. Do transitions
+    // 前面的检验操作完成之后,进行事物状态转移操作
     switch(startOpt) {
     case UPGRADE:
       doUpgrade();
@@ -374,9 +398,12 @@ public class FSImage extends Storage {
     case REGULAR:
       // just load the image
     }
+    
+    //导入镜像文件进行恢复
     return loadFSImage();
   }
-
+  
+  //处理更新操作
   private void doUpgrade() throws IOException {
     if(getDistributedUpgradeState()) {
       // only distributed upgrade need to continue
