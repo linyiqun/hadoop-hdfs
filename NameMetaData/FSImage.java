@@ -424,6 +424,7 @@ public class FSImage extends Storage {
     }
 
     // load the latest image
+    // 加载最新的镜像
     this.loadFSImage();
 
     // Do upgrade for each directory
@@ -446,10 +447,14 @@ public class FSImage extends Storage {
       assert curDir.exists() : "Current directory must exist.";
       assert !prevDir.exists() : "prvious directory must not exist.";
       assert !tmpDir.exists() : "prvious.tmp directory must not exist.";
+      
+      //在做升级的时候，将当前目录变为tmp临时目录
       // rename current to tmp
       rename(curDir, tmpDir);
+      //保存新的镜像目录
       // save new image
       saveCurrent(sd);
+      //将tmp临时目录变为早期的文件目录
       // rename tmp to previous
       rename(tmpDir, prevDir);
       isUpgradeFinalized = false;
@@ -470,6 +475,7 @@ public class FSImage extends Storage {
                        dirIterator(); it.hasNext();) {
       StorageDirectory sd = it.next();
       File prevDir = sd.getPreviousDir();
+      //做回滚操作的时候，必须有早期的文件目录存在
       if (!prevDir.exists()) {  // use current directory then
         LOG.info("Storage directory " + sd.getRoot()
                  + " does not contain previous fs state.");
@@ -501,6 +507,8 @@ public class FSImage extends Storage {
       // rename current to tmp
       File curDir = sd.getCurrentDir();
       assert curDir.exists() : "Current directory must exist.";
+      
+      //同样需要做目录替换，把早期的目录变为当前目录，当前的变为临时目录，最后删除临时目录
       rename(curDir, tmpDir);
       // rename previous to current
       rename(prevDir, curDir);
@@ -514,6 +522,7 @@ public class FSImage extends Storage {
     verifyDistributedUpgradeProgress(StartupOption.REGULAR);
   }
 
+  //升级/回滚后做的finalizeq确认操作
   private void doFinalize(StorageDirectory sd) throws IOException {
     File prevDir = sd.getPreviousDir();
     if (!prevDir.exists()) { // already discarded
@@ -529,6 +538,7 @@ public class FSImage extends Storage {
     assert sd.getCurrentDir().exists() : "Current directory must exist.";
     final File tmpDir = sd.getFinalizedTmp();
     // rename previous to tmp and remove
+    //做确认操作之后，之前的文件目录就将被清空掉
     rename(prevDir, tmpDir);
     deleteDir(tmpDir);
     isUpgradeFinalized = true;
@@ -537,6 +547,7 @@ public class FSImage extends Storage {
 
   /**
    * Load image from a checkpoint directory and save it into the current one.
+   * 从检查点中恢复镜像操作
    * @throws IOException
    */
   void doImportCheckpoint() throws IOException {
@@ -560,9 +571,11 @@ public class FSImage extends Storage {
     saveNamespace(false);
   }
 
+  //对每个存储目录做确认操作
   void finalizeUpgrade() throws IOException {
     for (Iterator<StorageDirectory> it = 
                           dirIterator(); it.hasNext();) {
+      //对每个存储目录做确认操作
       doFinalize(it.next());
     }
   }
@@ -883,6 +896,7 @@ public class FSImage extends Storage {
     //
     // Load in bits
     //
+    //以输入流的方式读取镜像文件数据
     boolean needToSave = true;
     DataInputStream in = new DataInputStream(new BufferedInputStream(
                               new FileInputStream(curFile)));
@@ -952,6 +966,7 @@ public class FSImage extends Storage {
           for (int j = 0; j < numBlocks; j++) {
             blocks[j] = new Block();
             if (-14 < imgVersion) {
+              //一个个数据块的恢复
               blocks[j].set(in.readLong(), in.readLong(), 
                             Block.GRANDFATHER_GENERATION_STAMP);
             } else {
@@ -1060,6 +1075,7 @@ public class FSImage extends Storage {
 
   /**
    * Save the contents of the FS image to the file.
+   * 保存镜像文件
    */
   void saveFSImage(File newFile) throws IOException {
     FSNamesystem fsNamesys = FSNamesystem.getFSNamesystem();
@@ -1072,9 +1088,13 @@ public class FSImage extends Storage {
                                                 new BufferedOutputStream(
                                                                          new FileOutputStream(newFile)));
     try {
+      //写入版本号
       out.writeInt(FSConstants.LAYOUT_VERSION);
+      //写入命名空间ID
       out.writeInt(namespaceID);
+      //写入目录下的孩子总数
       out.writeLong(fsDir.rootDir.numItemsInTree());
+      //写入时间
       out.writeLong(fsNamesys.getGenerationStamp());
       byte[] byteStore = new byte[4*FSConstants.MAX_PATH_LENGTH];
       ByteBuffer strbuf = ByteBuffer.wrap(byteStore);
