@@ -83,8 +83,10 @@ public class FSEditLog {
   
   //日志刷入的缓冲大小值512k
   private static int sizeFlushBuffer = 512*1024;
-
+  
+  //编辑日志同时有多个输出流对象
   private ArrayList<EditLogOutputStream> editStreams = null;
+  //内部维护了1个镜像类，与镜像进行交互
   private FSImage fsimage = null;
 
   // a monotonically increasing counter that represents transactionIds.
@@ -103,8 +105,11 @@ public class FSEditLog {
   private boolean isSyncRunning;
 
   // these are statistics counters.
+  //事务相关的统计变量
+  //事务的总数
   private long numTransactions;        // number of transactions
   private long numTransactionsBatchedInSync;
+  //事务的总耗时
   private long totalTimeTransactions;  // total time for all transactions
   private NameNodeInstrumentation metrics;
   
@@ -177,7 +182,7 @@ public class FSEditLog {
 
     /**
      * Create empty edits logs file.
-     * 创建一个空的编辑日志文件
+     * 从创建一个空的编辑日志文件
      */
     @Override
     void create() throws IOException {
@@ -234,7 +239,7 @@ public class FSEditLog {
     @Override
     protected void flushAndSync() throws IOException {
       preallocate();            // preallocate file if necessary
-      //将缓冲区数据写入文件中
+      //将ready缓冲区中的数据写入文件中
       bufReady.writeTo(fp);     // write data to file
       bufReady.reset();         // erase all data in the buffer
       fc.force(false);          // metadata updates not needed because of preallocation
@@ -243,6 +248,7 @@ public class FSEditLog {
 
     /**
      * Return the size of the current edit log including buffered data.
+     *计算长度的时候，不仅需要计算文件的长度还要算上2个缓冲区中的大小
      */
     @Override
     long length() throws IOException {
@@ -360,6 +366,7 @@ public class FSEditLog {
     if (editStreams == null) {
       editStreams = new ArrayList<EditLogOutputStream>();
     }
+    //传入目录类型获取迭代器
     Iterator<StorageDirectory> it = fsimage.dirIterator(NameNodeDirType.EDITS); 
     while (it.hasNext()) {
       StorageDirectory sd = it.next();
@@ -376,6 +383,7 @@ public class FSEditLog {
     exitIfNoStreams();
   }
 
+  //创建一个新的编辑日志文件，调用的是EditLogFileOutputStream对象
   public synchronized void createEditLogFile(File name) throws IOException {
     EditLogOutputStream eStream = new EditLogFileOutputStream(name);
     eStream.create();
@@ -432,6 +440,7 @@ public class FSEditLog {
 
   /**
    * Exit the NN process if there are no edit streams to log to.
+   *如果在namenode进程退出，编辑日志流中还是没有数据，则表示不正常
    */
   void exitIfNoStreams() {
     if (editStreams == null || editStreams.isEmpty()) {
