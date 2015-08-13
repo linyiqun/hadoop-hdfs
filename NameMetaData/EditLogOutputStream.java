@@ -28,7 +28,10 @@ import org.apache.hadoop.io.Writable;
  */
 abstract class EditLogOutputStream extends OutputStream {
   // these are statistics counters
+  //下面是2个统计量
+  //文件同步的次数，可以理解为就是缓冲写入的次数
   private long numSync;        // number of sync(s) to disk
+  //同步写入的总时间计数
   private long totalTimeSync;  // total time to sync
 
   EditLogOutputStream() throws IOException {
@@ -82,12 +85,16 @@ abstract class EditLogOutputStream extends OutputStream {
   /**
    * Flush data to persistent store.
    * Collect sync metrics.
+   * 刷出时间方法
    */
   public void flush() throws IOException {
+    //同步次数加1
     numSync++;
     long start = FSNamesystem.now();
+    //刷出同步方法为抽象方法，由继承的子类具体
     flushAndSync();
     long end = FSNamesystem.now();
+    //同时进行耗时的累加
     totalTimeSync += (end - start);
   }
 
