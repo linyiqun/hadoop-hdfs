@@ -1291,6 +1291,7 @@ public class FSImage extends Storage {
 
   /** 
    * Refresh storage dirs by copying files from good storage dir
+   * 从完好的存储目录拷贝进行还原
    */
   void restoreStorageDirs() {
     if (!restoreRemovedDirs || getRemovedStorageDirs().isEmpty()) {
@@ -1434,6 +1435,7 @@ public class FSImage extends Storage {
    * Save file tree image starting from the given root.
    * This is a recursive procedure, which first saves all children of
    * a current directory and then moves inside the sub-directories.
+   * 按照给定节点进行镜像的保存,每个节点目录会采取递归的方式进行遍历
    */
   private static void saveImage(ByteBuffer parentPrefix,
                                 int prefixLength,
@@ -1731,6 +1733,7 @@ public class FSImage extends Storage {
   /**
    * DatanodeImage is used to store persistent information
    * about datanodes into the fsImage.
+   * 数据节点镜像类用于持久化数据节点的信息
    */
   static class DatanodeImage implements Writable {
     DatanodeDescriptor node = new DatanodeDescriptor();
