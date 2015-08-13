@@ -76,7 +76,7 @@ public abstract class Storage extends StorageInfo {
   /** Layout versions of 203 release */
   public static final int[] LAYOUT_VERSIONS_203 = {-19, -31};
   
-  //Ԫ���ݸ���״̬ʱ�Ĵ洢����
+  //元数据各种状态时的存储名称
   private   static final String STORAGE_FILE_LOCK     = "in_use.lock";
   protected static final String STORAGE_FILE_VERSION  = "VERSION";
   public static final String STORAGE_DIR_CURRENT   = "current";
@@ -87,7 +87,7 @@ public abstract class Storage extends StorageInfo {
   private   static final String STORAGE_TMP_LAST_CKPT = "lastcheckpoint.tmp";
   private   static final String STORAGE_PREVIOUS_CKPT = "previous.checkpoint";
   
-  //�洢״̬
+  //存储状态
   public enum StorageState {
     NON_EXISTENT,
     NOT_FORMATTED,
@@ -114,9 +114,13 @@ public abstract class Storage extends StorageInfo {
   private NodeType storageType;    // Type of the node using this storage 
   protected List<StorageDirectory> storageDirs = new ArrayList<StorageDirectory>();
   
+  //目录迭代器
   private class DirIterator implements Iterator<StorageDirectory> {
+    //目录存储类型
     StorageDirType dirType;
+    //向前的指标,用于移除操作
     int prevIndex; // for remove()
+    //向后指标
     int nextIndex; // for next()
     
     DirIterator(StorageDirType dirType) {
@@ -180,14 +184,14 @@ public abstract class Storage extends StorageInfo {
   
   /**
    * One of the storage directories.
-   * �洢Ŀ¼��
+   * 存储目录类
    */
   public class StorageDirectory {
-  	//��Ŀ¼�ļ�
+  	//根目录文件
     File              root; // root directory
-    //�ļ���
+    //文件锁
     FileLock          lock; // storage lock
-    //�洢Ŀ¼����
+    //存储目录类型
     StorageDirType dirType; // storage dir type
     
     public StorageDirectory(File dir) {
@@ -306,7 +310,7 @@ public abstract class Storage extends StorageInfo {
     /**
      * Directory {@code current} contains latest files defining
      * the file system meta-data.
-     * 
+     * 得到当前目录,即根目录
      * @return the directory path
      */
     public File getCurrentDir() {
@@ -422,7 +426,7 @@ public abstract class Storage extends StorageInfo {
 
     /**
      * Check consistency of the storage directory
-     * 
+     * 检查目录状态的一致性
      * @param startOpt a startup option.
      *  
      * @return state {@link StorageState} of the storage directory 
@@ -544,6 +548,7 @@ public abstract class Storage extends StorageInfo {
       case COMPLETE_UPGRADE:  // mv previous.tmp -> previous
         LOG.info("Completing previous upgrade for storage directory " 
                  + rootPath + ".");
+        //做恢复操作,文件名更换
         rename(getPreviousTmp(), getPreviousDir());
         return;
       case RECOVER_UPGRADE:   // mv previous.tmp -> current
@@ -718,7 +723,7 @@ public abstract class Storage extends StorageInfo {
   /**
    * Get common storage fields.
    * Should be overloaded if additional fields need to be get.
-   * 
+   * 获取公共存储属性
    * @param props
    * @throws IOException
    */
