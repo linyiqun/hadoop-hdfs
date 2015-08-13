@@ -26,22 +26,23 @@ import java.io.InputStream;
  * 
  * It should stream bytes from the storage exactly as they were written
  * into the #{@link EditLogOutputStream}.
+ * 多了几个以字节方式读入的抽象方法
  */
 abstract class EditLogInputStream extends InputStream {
   /**
    * Get this stream name.
-   * 
+   * 输入流的名称
    * @return name of the stream
    */
   abstract String getName();
 
-  /** {@inheritDoc} */
+  /** {@inheritDoc}日志是可用，根据长度是否大于0判断*/
   public abstract int available() throws IOException;
 
   /** {@inheritDoc} */
   public abstract int read() throws IOException;
 
-  /** {@inheritDoc} */
+  /** {@inheritDoc}字节方式的读方法*/
   public abstract int read(byte[] b, int off, int len) throws IOException;
 
   /** {@inheritDoc} */
@@ -49,6 +50,7 @@ abstract class EditLogInputStream extends InputStream {
 
   /**
    * Return the size of the current edits log.
+   *返回编辑日志的大小
    */
   abstract long length() throws IOException;
 }
