@@ -49,10 +49,12 @@ import org.apache.hadoop.security.token.delegation.DelegationKey;
 
 /**
  * FSEditLog maintains a log of the namespace modifications.
- * 
+ * 编辑日志类包含了命名空间各种修改操作的日志记录
  */
 public class FSEditLog {
+  //操作参数种类
   private static final byte OP_INVALID = -1;
+  // 文件操作相关
   private static final byte OP_ADD = 0;
   private static final byte OP_RENAME = 1;  // rename
   private static final byte OP_DELETE = 2;  // delete
@@ -61,36 +63,43 @@ public class FSEditLog {
   //the following two are used only for backward compatibility :
   @Deprecated private static final byte OP_DATANODE_ADD = 5;
   @Deprecated private static final byte OP_DATANODE_REMOVE = 6;
+  //下面2个权限设置相关
   private static final byte OP_SET_PERMISSIONS = 7;
   private static final byte OP_SET_OWNER = 8;
   private static final byte OP_CLOSE = 9;    // close after write
   private static final byte OP_SET_GENSTAMP = 10;    // store genstamp
   /* The following two are not used any more. Should be removed once
    * LAST_UPGRADABLE_LAYOUT_VERSION is -17 or newer. */
+  //配额设置相关
   private static final byte OP_SET_NS_QUOTA = 11; // set namespace quota
   private static final byte OP_CLEAR_NS_QUOTA = 12; // clear namespace quota
   private static final byte OP_TIMES = 13; // sets mod & access time on a file
   private static final byte OP_SET_QUOTA = 14; // sets name and disk quotas.
+  //Token认证相关
   private static final byte OP_GET_DELEGATION_TOKEN = 18; //new delegation token
   private static final byte OP_RENEW_DELEGATION_TOKEN = 19; //renew delegation token
   private static final byte OP_CANCEL_DELEGATION_TOKEN = 20; //cancel delegation token
   private static final byte OP_UPDATE_MASTER_KEY = 21; //update master key
-
+  
+  //日志刷入的缓冲大小值512k
   private static int sizeFlushBuffer = 512*1024;
 
   private ArrayList<EditLogOutputStream> editStreams = null;
   private FSImage fsimage = null;
 
   // a monotonically increasing counter that represents transactionIds.
+  //每次进行同步刷新的事物ID
   private long txid = 0;
 
   // stores the last synced transactionId.
+  //最近一次已经同步的事物Id
   private long synctxid = 0;
 
   // the time of printing the statistics to the log file.
   private long lastPrintTime;
 
   // is a sync currently running?
+  //是否有日志同步操作正在进行
   private boolean isSyncRunning;
 
   // these are statistics counters.
@@ -98,8 +107,10 @@ public class FSEditLog {
   private long numTransactionsBatchedInSync;
   private long totalTimeTransactions;  // total time for all transactions
   private NameNodeInstrumentation metrics;
-
+  
+  //事物ID对象类,内部包含long类型txid值
   private static class TransactionId {
+    //操作事物Id
     public long txid;
 
     TransactionId(long value) {
@@ -108,6 +119,7 @@ public class FSEditLog {
   }
 
   // stores the most current transactionId of this thread.
+  //通过ThreadLocal类保存线程私有的状态信息
   private static final ThreadLocal<TransactionId> myTransactionId = new ThreadLocal<TransactionId>() {
     protected synchronized TransactionId initialValue() {
       return new TransactionId(Long.MAX_VALUE);
@@ -117,18 +129,23 @@ public class FSEditLog {
   /**
    * An implementation of the abstract class {@link EditLogOutputStream},
    * which stores edits in a local file.
+   * 所有的写日志文件的操作,都会通过这个输出流对象实现
    */
   static private class EditLogFileOutputStream extends EditLogOutputStream {
     private File file;
+    //内部维护了一个文件输出流对象
     private FileOutputStream fp;    // file stream for storing edit logs 
     private FileChannel fc;         // channel of the file stream for sync
+    //这里设计了一个双缓冲区的设计,大大加强并发度,bufCurrent负责写入写入缓冲区
     private DataOutputBuffer bufCurrent;  // current buffer for writing
+    //bufReady负载刷入数据到文件中
     private DataOutputBuffer bufReady;    // buffer ready for flushing
     static ByteBuffer fill = ByteBuffer.allocateDirect(512); // preallocation
 
     EditLogFileOutputStream(File name) throws IOException {
       super();
       file = name;
+      //每个缓冲的起始都是512k
       bufCurrent = new DataOutputBuffer(sizeFlushBuffer);
       bufReady = new DataOutputBuffer(sizeFlushBuffer);
       RandomAccessFile rp = new RandomAccessFile(name, "rw");
@@ -145,6 +162,7 @@ public class FSEditLog {
     /** {@inheritDoc} */
     @Override
     public void write(int b) throws IOException {
+      //开始时的数据写入都是先写入bufCurrent缓冲
       bufCurrent.write(b);
     }
 
@@ -159,13 +177,16 @@ public class FSEditLog {
 
     /**
      * Create empty edits logs file.
+     * 创建一个空的编辑日志文件
      */
     @Override
     void create() throws IOException {
       fc.truncate(0);
       fc.position(0);
       bufCurrent.writeInt(FSConstants.LAYOUT_VERSION);
+      //将缓冲区数据进行交互,current缓冲到flush缓冲
       setReadyToFlush();
+      //刷入flush缓冲数据到文件中
       flush();
     }
 
@@ -179,10 +200,12 @@ public class FSEditLog {
                               " bytes still to be flushed and cannot " +
                               "be closed.");
       } 
+      //关闭缓冲区
       bufCurrent.close();
       bufReady.close();
 
       // remove the last INVALID marker from transaction log.
+      //截断最后的无效标志符
       fc.truncate(fc.position());
       fp.close();
       
@@ -197,6 +220,7 @@ public class FSEditLog {
     void setReadyToFlush() throws IOException {
       assert bufReady.size() == 0 : "previous data is not flushed yet";
       write(OP_INVALID);           // insert end-of-file marker
+      //交换2个缓冲区
       DataOutputBuffer tmp = bufReady;
       bufReady = bufCurrent;
       bufCurrent = tmp;
@@ -210,6 +234,7 @@ public class FSEditLog {
     @Override
     protected void flushAndSync() throws IOException {
       preallocate();            // preallocate file if necessary
+      //将缓冲区数据写入文件中
       bufReady.writeTo(fp);     // write data to file
       bufReady.reset();         // erase all data in the buffer
       fc.force(false);          // metadata updates not needed because of preallocation
@@ -248,6 +273,7 @@ public class FSEditLog {
     }
   }
 
+  //日志文件输入流
   static class EditLogFileInputStream extends EditLogInputStream {
     private File file;
     private FileInputStream fStream;
@@ -548,6 +574,8 @@ public class FSEditLog {
           break; // no more transactions
         }
         numEdits++;
+        
+        //下面根据操作类型进行值的设置
         switch (opcode) {
         case OP_ADD:
         case OP_CLOSE: {
@@ -637,6 +665,7 @@ public class FSEditLog {
             //
             // Replace current node with a INodeUnderConstruction.
             // Recreate in-memory lease record.
+            // 构造出处于构建状态的的文件对象
             //
             INodeFileUnderConstruction cons = new INodeFileUnderConstruction(
                                       node.getLocalNameBytes(),
@@ -919,6 +948,7 @@ public class FSEditLog {
   /**
    * Write an operation to the edit log. Do not sync to persistent
    * store yet.
+   * 写入一个操作到编辑日志中
    */
   synchronized void logEdit(byte op, Writable ... writables) {
     if (getNumEditStreams() < 1) {
@@ -928,6 +958,7 @@ public class FSEditLog {
     for (int idx = 0; idx < editStreams.size(); idx++) {
       EditLogOutputStream eStream = editStreams.get(idx);
       try {
+        // 写入操作到输出里流中
         eStream.write(op, writables);
       } catch (IOException ioe) {
         removeEditsAndStorageDir(idx);
