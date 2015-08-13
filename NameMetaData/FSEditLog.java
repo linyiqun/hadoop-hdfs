@@ -340,6 +340,7 @@ public class FSEditLog {
    return numStorageDirs;
   }
   
+  //获取当前编辑的流的数量
   synchronized int getNumEditStreams() {
     return editStreams == null ? 0 : editStreams.size();
   }
@@ -364,6 +365,7 @@ public class FSEditLog {
       StorageDirectory sd = it.next();
       File eFile = getEditFile(sd);
       try {
+        //打开存储目录下的文件获取输出流
         EditLogOutputStream eStream = new EditLogFileOutputStream(eFile);
         editStreams.add(eStream);
       } catch (IOException ioe) {
@@ -382,9 +384,11 @@ public class FSEditLog {
 
   /**
    * Shutdown the file store.
+   * 关闭操作
    */
   public synchronized void close() throws IOException {
     while (isSyncRunning) {
+      //如果同正在进行，则等待1s
       try {
         wait(1000);
       } catch (InterruptedException ie) { 
@@ -399,6 +403,7 @@ public class FSEditLog {
     for (int idx = 0; idx < editStreams.size(); idx++) {
       EditLogOutputStream eStream = editStreams.get(idx);
       try {
+        //关闭将最后的数据刷出缓冲
         eStream.setReadyToFlush();
         eStream.flush();
         eStream.close();
@@ -1130,6 +1135,7 @@ public class FSEditLog {
 
   /** 
    * Add close lease record to edit log.
+   * 添加关闭操作记编辑日志文件中
    */
   public void logCloseFile(String path, INodeFile newNode) {
     UTF8 nameReplicationPair[] = new UTF8[] {
@@ -1138,6 +1144,8 @@ public class FSEditLog {
       FSEditLog.toLogLong(newNode.getModificationTime()),
       FSEditLog.toLogLong(newNode.getAccessTime()),
       FSEditLog.toLogLong(newNode.getPreferredBlockSize())};
+    
+    //写入关闭操作记录
     logEdit(OP_CLOSE,
             new ArrayWritable(UTF8.class, nameReplicationPair),
             new ArrayWritable(Block.class, newNode.getBlocks()),
@@ -1262,11 +1270,13 @@ public class FSEditLog {
 
   /**
    * Return the size of the current EditLog
+   * 获取编辑日志总的大小
    */
   synchronized long getEditLogSize() throws IOException {
     assert(getNumStorageDirs() == editStreams.size());
     long size = 0;
     for (int idx = 0; idx < editStreams.size(); idx++) {
+      //累加每个编辑日志流的长度
       long curSize = editStreams.get(idx).length();
       assert (size == 0 || size == curSize) : "All streams must be the same";
       size = curSize;
@@ -1299,6 +1309,7 @@ public class FSEditLog {
           " edits.new files already exists in all healthy directories:" + b);
       return;
     }
+    //关闭存editlog
     close(); // close existing edit log
 
     // After edit streams are closed, healthy edits files should be identical,
@@ -1350,6 +1361,7 @@ public class FSEditLog {
 
     //
     // Delete edits and rename edits.new to edits.
+    // 删除旧的日志记录，并将新的重命名为edits
     //
     Iterator<StorageDirectory> it = fsimage.dirIterator(NameNodeDirType.EDITS);
     while (it.hasNext()) {
@@ -1359,6 +1371,7 @@ public class FSEditLog {
         // renameTo() fails on Windows if the destination
         // file exists.
         //
+        //删除原有的编辑日志
         getEditFile(sd).delete();
         if (!getEditNewFile(sd).renameTo(getEditFile(sd))) {
           sd.unlock();
