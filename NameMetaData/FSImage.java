@@ -1131,12 +1131,14 @@ public class FSImage extends Storage {
   void saveNamespace(boolean renewCheckpointTime) throws IOException {
     editLog.close();
     if(renewCheckpointTime)
+      //更新此时检查点时间
       this.checkpointTime = FSNamesystem.now();
 
     // mv current -> lastcheckpoint.tmp
     for (Iterator<StorageDirectory> it = dirIterator(); it.hasNext();) {
       StorageDirectory sd = it.next();
       try {
+      	//转移当前目录到tmp文件
         moveCurrent(sd);
       } catch(IOException ie) {
         LOG.error("Unable to move current for " + sd.getRoot(), ie);
@@ -1149,6 +1151,7 @@ public class FSImage extends Storage {
                                                               it.hasNext();) {
       StorageDirectory sd = it.next();
       try {
+      	//保存镜像为当前的文件
         saveCurrent(sd);
       } catch(IOException ie) {
         LOG.error("Unable to save image for " + sd.getRoot(), ie);
@@ -1201,6 +1204,7 @@ public class FSImage extends Storage {
     if (!curDir.exists() && !curDir.mkdir())
       throw new IOException("Cannot create directory " + curDir);
     if (dirType.isOfType(NameNodeDirType.IMAGE))
+      //调用saveFSImafe方法保存镜像
       saveFSImage(getImageFile(sd, NameNodeFile.IMAGE));
     if (dirType.isOfType(NameNodeDirType.EDITS))
       editLog.createEditLogFile(getImageFile(sd, NameNodeFile.EDITS));
@@ -1223,6 +1227,7 @@ public class FSImage extends Storage {
     File tmpCkptDir = sd.getLastCheckpointTmp();
     // mv current -> lastcheckpoint.tmp
     // only if current is formatted - has VERSION file
+    //只有存在文件版本号后才能进行操作,证明已经被格式化
     if(sd.getVersionFile().exists()) {
       assert curDir.exists() : curDir + " directory must exist.";
       assert !tmpCkptDir.exists() : tmpCkptDir + " directory must not exist.";
@@ -1260,7 +1265,7 @@ public class FSImage extends Storage {
    * When a datanodes register they receive it as the registrationID,
    * which is checked every time the datanode is communicating with the 
    * namenode. Datanodes that do not 'know' the namespaceID are rejected.
-   * 
+   * 生成新的命名空间ID,在每次namenode格式化的时候产生
    * @return new namespaceID
    */
   private int newNamespaceID() {
@@ -1325,6 +1330,7 @@ public class FSImage extends Storage {
         if (!FileUtil.fullyDeleteContents(sd.getRoot())) {
           throw new IOException("Can't fully delete content of " + sd.getRoot());
         }
+        //清空原有目录,进行还原操作
         sd.clearDirectory(); // create empty "current" dir
         restoreFile(goodVersion, sd.getCurrentDir(), Storage.STORAGE_FILE_VERSION);
         restoreFile(goodFstime, sd.getCurrentDir(), NameNodeFile.TIME.getName());
@@ -1362,6 +1368,7 @@ public class FSImage extends Storage {
   
   
   /** Create new dfs name directory.  Caution: this destroys all files
+   * 格式化操作,会创建一个dfs/name的目录
    * in this filesystem. */
   void format(StorageDirectory sd) throws IOException {
     sd.clearDirectory(); // create currrent dir
@@ -1377,18 +1384,14 @@ public class FSImage extends Storage {
 
   public void format() throws IOException {
     this.layoutVersion = FSConstants.LAYOUT_VERSION;
-    this.namespaceID = newNamespaceID();
-    this.cTime = 0L;
-    this.checkpointTime = FSNamesystem.now();
-    for (Iterator<StorageDirectory> it = 
-                           dirIterator(); it.hasNext();) {
-      StorageDirectory sd = it.next();
+      //对每个目录进行格式化操作
       format(sd);
     }
   }
 
   /*
    * Save one inode's attributes to the image.
+   * 保留一个节点的属性到镜像中
    */
   private static void saveINode2Image(ByteBuffer name,
                                       INode node,
@@ -1398,6 +1401,7 @@ public class FSImage extends Storage {
     out.write(name.array(), name.arrayOffset(), nameLen);
     if (!node.isDirectory()) {  // write file inode
       INodeFile fileINode = (INodeFile)node;
+      //写入的属性包括,副本数,最近修改数据,最近访问时间
       out.writeShort(fileINode.getReplication());
       out.writeLong(fileINode.getModificationTime());
       out.writeLong(fileINode.getAccessTime());
@@ -1405,12 +1409,14 @@ public class FSImage extends Storage {
       Block[] blocks = fileINode.getBlocks();
       out.writeInt(blocks.length);
       for (Block blk : blocks)
+        //将数据块信息也写入
         blk.write(out);
       FILE_PERM.fromShort(fileINode.getFsPermissionShort());
       PermissionStatus.write(out, fileINode.getUserName(),
                              fileINode.getGroupName(),
                              FILE_PERM);
     } else {   // write directory inode
+      //如果是目录,则还要写入节点的配额限制值
       out.writeShort(0);  // replication
       out.writeLong(node.getModificationTime());
       out.writeLong(0);   // access time
