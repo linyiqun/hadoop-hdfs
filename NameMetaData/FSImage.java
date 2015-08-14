@@ -100,6 +100,7 @@ public class FSImage extends Storage {
    * 名字节点目录存储类型
    */
   static enum NameNodeDirType implements StorageDirType {
+    //名字节点存储类型定义主要有以下4种定义	
     UNDEFINED,
     IMAGE,
     EDITS,
@@ -109,6 +110,7 @@ public class FSImage extends Storage {
       return this;
     }
     
+    //做存储类型的验证
     public boolean isOfType(StorageDirType type) {
       if ((this == IMAGE_AND_EDITS) && (type == IMAGE || type == EDITS))
         return true;
