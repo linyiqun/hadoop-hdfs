@@ -108,6 +108,7 @@ public class FSEditLog {
   //事务相关的统计变量
   //事务的总数
   private long numTransactions;        // number of transactions
+  //未能即使被同步的事物次数统计
   private long numTransactionsBatchedInSync;
   //事务的总耗时
   private long totalTimeTransactions;  // total time for all transactions
@@ -362,6 +363,7 @@ public class FSEditLog {
    * @throws IOException
    */
   public synchronized void open() throws IOException {
+    //在文件打开的时候,计数值都初始化0
     numTransactions = totalTimeTransactions = numTransactionsBatchedInSync = 0;
     if (editStreams == null) {
       editStreams = new ArrayList<EditLogOutputStream>();
@@ -406,6 +408,7 @@ public class FSEditLog {
       return;
     }
     printStatistics(true);
+    //当文件关闭的时候重置计数
     numTransactions = totalTimeTransactions = numTransactionsBatchedInSync = 0;
 
     for (int idx = 0; idx < editStreams.size(); idx++) {
@@ -460,6 +463,7 @@ public class FSEditLog {
 
   /**
    * Remove the given edits stream and its containing storage dir.
+   * 移除目录操作,根据Id操作
    */
   synchronized void removeEditsAndStorageDir(int idx) {
     exitIfStreamsNotSet();
@@ -529,9 +533,11 @@ public class FSEditLog {
    * Load an edit log, and apply the changes to the in-memory structure
    * This is where we apply edits that we've been writing to disk all
    * along.
+   * 导入编辑日志文件,并在内存中构建此时状态
    */
   static int loadFSEdits(EditLogInputStream edits) throws IOException {
     FSNamesystem fsNamesys = FSNamesystem.getFSNamesystem();
+    //FSDirectory是一个门面模式的体现,所有的操作都是在这个类中分给里面的子系数实现
     FSDirectory fsDir = fsNamesys.dir;
     int numEdits = 0;
     int logVersion = 0;
@@ -555,6 +561,7 @@ public class FSEditLog {
       // numbers, so we avoid having to call available
       boolean available = true;
       try {
+        // 首先读入日志版本号
         logVersion = in.readByte();
       } catch (EOFException e) {
         available = false;
@@ -578,7 +585,9 @@ public class FSEditLog {
         long blockSize = 0;
         byte opcode = -1;
         try {
+          //读入操作参数
           opcode = in.readByte();
+          //如果读入的是无效参数,则表明已经读到日志的尾部了,可以跳出循环
           if (opcode == OP_INVALID) {
             FSNamesystem.LOG.info("Invalid opcode, reached end of edit log " +
                                    "Number of transactions found " + numEdits);
@@ -587,6 +596,7 @@ public class FSEditLog {
         } catch (EOFException e) {
           break; // no more transactions
         }
+        //进行记录数的累加
         numEdits++;
         
         //下面根据操作类型进行值的设置
@@ -972,7 +982,7 @@ public class FSEditLog {
     for (int idx = 0; idx < editStreams.size(); idx++) {
       EditLogOutputStream eStream = editStreams.get(idx);
       try {
-        // 写入操作到输出里流中
+        // 写入操作到每个输出流中
         eStream.write(op, writables);
       } catch (IOException ioe) {
         removeEditsAndStorageDir(idx);
@@ -981,6 +991,7 @@ public class FSEditLog {
     }
     exitIfNoStreams();
     // get a new transactionId
+    //获取一个新的事物Id
     txid++;
 
     //
@@ -991,6 +1002,7 @@ public class FSEditLog {
 
     // update statistics
     long end = FSNamesystem.now();
+    //在每次进行logEdit写入记录操作的时候,都会累加事物次数和耗时
     numTransactions++;
     totalTimeTransactions += (end-start);
     if (metrics != null) // Metrics is non-null only when used inside name node
@@ -1025,6 +1037,7 @@ public class FSEditLog {
         // If this transaction was already flushed, then nothing to do
         //
         if (mytxid <= synctxid) {
+          //当执行的事物id小于已同步的Id,也进行计数累加
           numTransactionsBatchedInSync++;
           if (metrics != null) // Metrics is non-null only when used inside name node
             metrics.incrTransactionsBatchedInSync();
