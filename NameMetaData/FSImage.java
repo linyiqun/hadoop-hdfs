@@ -119,6 +119,7 @@ public class FSImage extends Storage {
   }
   
   protected long checkpointTime = -1L;
+  //内部维护了编辑日志类，与镜像类配合操作
   protected FSEditLog editLog = null;
   private boolean isUpgradeFinalized = false;
   
@@ -1370,6 +1371,15 @@ public class FSImage extends Storage {
   }
   
   
+  
+
+  public void format() throws IOException {
+    this.layoutVersion = FSConstants.LAYOUT_VERSION;
+      //对每个目录进行格式化操作
+      format(sd);
+    }
+  }
+  
   /** Create new dfs name directory.  Caution: this destroys all files
    * 格式化操作,会创建一个dfs/name的目录
    * in this filesystem. */
@@ -1383,13 +1393,6 @@ public class FSImage extends Storage {
     }
     LOG.info("Storage directory " + sd.getRoot()
              + " has been successfully formatted.");
-  }
-
-  public void format() throws IOException {
-    this.layoutVersion = FSConstants.LAYOUT_VERSION;
-      //对每个目录进行格式化操作
-      format(sd);
-    }
   }
 
   /*
@@ -1556,6 +1559,7 @@ public class FSImage extends Storage {
 
   // Helper function that writes an INodeUnderConstruction
   // into the input stream
+  // 写入正在操作的文件的信息
   //
   static void writeINodeUnderConstruction(DataOutputStream out,
                                            INodeFileUnderConstruction cons,
@@ -1580,6 +1584,7 @@ public class FSImage extends Storage {
   /**
    * Moves fsimage.ckpt to fsImage and edits.new to edits
    * Reopens the new edits file.
+   * 完成2个文件的名称替换
    */
   void rollFSImage() throws IOException {
     if (ckptState != CheckpointStates.UPLOAD_DONE) {
@@ -1605,6 +1610,7 @@ public class FSImage extends Storage {
 
     //
     // Renames new image
+    // 重命名新镜像名称
     //
     it = dirIterator(NameNodeDirType.IMAGE);
     while (it.hasNext()) {
@@ -1697,6 +1703,7 @@ public class FSImage extends Storage {
 
   /**
    * Return the name of the image file.
+   * 获取镜像文件
    */
   File getFsImageName() {
   StorageDirectory sd = null;

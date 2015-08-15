@@ -371,6 +371,7 @@ public class SecondaryNameNode implements Runnable {
 
   /**
    * Copy the new fsimage into the NameNode
+   * 上传新的镜像到到名字节点
    */
   private void putFSImage(CheckpointSignature sig) throws IOException {
     String fileid = "putimage=1&port=" + imagePort +
@@ -399,6 +400,7 @@ public class SecondaryNameNode implements Runnable {
   void doCheckpoint() throws IOException {
 
     // Do the required initialization of the merge work area.
+    //做初始化的镜像操作
     startCheckpoint();
 
     // Tell the namenode to start logging transactions in a new edit file
@@ -411,13 +413,15 @@ public class SecondaryNameNode implements Runnable {
                             "after creating edits.new");
     }
 
+    //从名字节点获取当前镜像或编辑日志
     downloadCheckpointFiles(sig);   // Fetch fsimage and edits
+    //进行镜像合并操作
     doMerge(sig);                   // Do the merge
   
     //
     // Upload the new image into the NameNode. Then tell the Namenode
     // to make this new uploaded image as the most current image.
-    //
+    //把合并好后的镜像重新上传到名字节点
     putFSImage(sig);
 
     // error simulation code for junit test
@@ -425,7 +429,8 @@ public class SecondaryNameNode implements Runnable {
       throw new IOException("Simulating error1 " +
                             "after uploading new image to NameNode");
     }
-
+    
+    //通知名字节点进行镜像的替换操作，包括将edit.new的名称重新改为edit，镜像名称fsimage.ckpt改为fsImage
     namenode.rollFsImage();
     checkpointImage.endCheckpoint();
 

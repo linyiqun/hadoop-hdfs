@@ -225,6 +225,7 @@ public class FSEditLog {
     @Override
     void setReadyToFlush() throws IOException {
       assert bufReady.size() == 0 : "previous data is not flushed yet";
+      //添加无效标识符到bufCureent缓冲
       write(OP_INVALID);           // insert end-of-file marker
       //交换2个缓冲区
       DataOutputBuffer tmp = bufReady;
@@ -244,6 +245,7 @@ public class FSEditLog {
       bufReady.writeTo(fp);     // write data to file
       bufReady.reset();         // erase all data in the buffer
       fc.force(false);          // metadata updates not needed because of preallocation
+      //跳过无效标志位，因为无效标志位每次都会写入
       fc.position(fc.position()-1); // skip back the end-of-file marker
     }
 
@@ -1053,6 +1055,7 @@ public class FSEditLog {
         exitIfNoStreams();
         for(EditLogOutputStream eStream : editStreams) {
           try {
+          	//交换缓冲
             eStream.setReadyToFlush();
             streams.add(eStream);
           } catch (IOException ie) {
@@ -1072,6 +1075,7 @@ public class FSEditLog {
       long start = FSNamesystem.now();
       for (EditLogOutputStream eStream : streams) {
         try {
+          //同步完成之后，做输入数据操作
           eStream.flush();
         } catch (IOException ie) {
           FSNamesystem.LOG.error("Unable to sync edit log.", ie);
