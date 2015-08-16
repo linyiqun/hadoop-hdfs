@@ -36,21 +36,30 @@ import org.apache.hadoop.util.StringUtils;
  * DatanodeInfo represents the status of a DataNode.
  * This object is used for communication in the
  * Datanode Protocol and the Client Protocol.
+ * DatanodeInfo继承了DatanodeID类，并添加了更多与节点属性相关的变量
  */
 public class DatanodeInfo extends DatanodeID implements Node {
+  //数据节点容量大小
   protected long capacity;
+  //dfs属于空间大小
   protected long dfsUsed;
+  //剩余空间大小
   protected long remaining;
+  //最近更新时间
   protected long lastUpdate;
+  //活跃连接数
   protected int xceiverCount;
+  //机架位置
   protected String location = NetworkTopology.DEFAULT_RACK;
 
   /** HostName as suplied by the datanode during registration as its 
    * name. Namenode uses datanode IP address as the name.
+   * 主机名，数据节点靠此名称在名字节点上完成注册操作
    */
   protected String hostName = null;
   
   // administrative states of a datanode
+  //节点状态，有正常，正在撤销，已经撤销
   public enum AdminStates {NORMAL, DECOMMISSION_INPROGRESS, DECOMMISSIONED; }
   protected AdminStates adminState;
 
@@ -183,6 +192,7 @@ public class DatanodeInfo extends DatanodeID implements Node {
   }
   
   /** A formatted string for reporting the status of the DataNode. */
+  //数据节点状态信息报告操作，有相对应的终端命令
   public String getDatanodeReport() {
     StringBuffer buffer = new StringBuffer();
     long c = getCapacity();
@@ -215,6 +225,7 @@ public class DatanodeInfo extends DatanodeID implements Node {
   }
 
   /** A formatted string for printing the status of the DataNode. */
+  //将数据节点状态导出到一个字符串中
   public String dumpDatanode() {
     StringBuffer buffer = new StringBuffer();
     long c = getCapacity();
@@ -304,6 +315,7 @@ public class DatanodeInfo extends DatanodeID implements Node {
     }
   }
 
+  //数据节点位置相关的属性
   private int level; //which level of the tree the node resides
   private Node parent; //its parent
 
