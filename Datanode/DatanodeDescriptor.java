@@ -42,17 +42,21 @@ import org.apache.hadoop.io.WritableUtils;
  * to the namenode. It is *not* sent over-the-wire to the Client
  * or the Datnodes. Neither is it stored persistently in the
  * fsImage.
-
+ DatanodeDescriptor数据节点描述类跟踪描述了一个数据节点的状态信息
  **************************************************/
 public class DatanodeDescriptor extends DatanodeInfo {
   
   // Stores status of decommissioning.
   // If node is not decommissioning, do not use this object for anything.
+  //下面这个对象只与decomission撤销工作相关
   DecommissioningStatus decommissioningStatus = new DecommissioningStatus();
 
   /** Block and targets pair */
+  //数据块以及目标数据节点列表映射类
   public static class BlockTargetPair {
+  	//目标数据块
     public final Block block;
+    //该数据块的目标数据节点
     public final DatanodeDescriptor[] targets;    
 
     BlockTargetPair(Block block, DatanodeDescriptor[] targets) {
@@ -62,7 +66,9 @@ public class DatanodeDescriptor extends DatanodeInfo {
   }
 
   /** A BlockTargetPair queue. */
+  //block块目标数据节点类队列
   private static class BlockQueue {
+  	//此类维护了BlockTargetPair列表对象
     private final Queue<BlockTargetPair> blockq = new LinkedList<BlockTargetPair>();
 
     /** Size of the queue */
@@ -86,10 +92,12 @@ public class DatanodeDescriptor extends DatanodeInfo {
       return results;
     }
   }
-
+  
+  //临时变量，在后面的方法中会用到
   private volatile BlockInfo blockList = null;
   // isAlive == heartbeats.contains(this)
   // This is an optimization, because contains takes O(n) time on Arraylist
+  //节点是否活着，通过心跳来判断
   protected boolean isAlive = false;
   protected boolean needKeyUpdate = false;
 
@@ -99,13 +107,18 @@ public class DatanodeDescriptor extends DatanodeInfo {
   // following 'bandwidth' variable gets updated with the new value for each
   // node. Once the heartbeat command is issued to update the value on the
   // specified datanode, this value will be set back to 0.
+  //带宽属性，可以通过dfsadmin -setBalanacerBandwidth <newbandwidth>这个命令进行动态设置
+  //但是一旦途中心跳命令出错，带宽将会被设为0
   private long bandwidth;
 
   /** A queue of blocks to be replicated by this datanode */
+  //此数据节点上待复制的block块列表
   private BlockQueue replicateBlocks = new BlockQueue();
   /** A queue of blocks to be recovered by this datanode */
+  //此数据节点上待租约恢复的块列表
   private BlockQueue recoverBlocks = new BlockQueue();
   /** A set of blocks to be invalidated by this datanode */
+  //此数据节点上无效待删除的块列表
   private Set<Block> invalidateBlocks = new TreeSet<Block>();
 
   /* Variables for maintaning number of blocks scheduled to be written to
@@ -113,6 +126,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
    * in case of errors (e.g. datanode does not report if an error occurs 
    * while writing the block).
    */
+  //写入这个数据节点的块的数目统计变量
   private int currApproxBlocksScheduled = 0;
   private int prevApproxBlocksScheduled = 0;
   private long lastBlocksScheduledRollTime = 0;
@@ -193,11 +207,14 @@ public class DatanodeDescriptor extends DatanodeInfo {
   /**
    * Add data-node to the block.
    * Add block to the head of the list of blocks belonging to the data-node.
+   * 将数据节点加入到block块对应的数据节点列表中
    */
   boolean addBlock(BlockInfo b) {
+  	//添加新的数据节点
     if(!b.addNode(this))
       return false;
     // add to the head of the data-node list
+    //将此数据块添加到数据节点管理的数据块列表中，并于当前数据块时相邻位置
     blockList = b.listInsert(blockList, this);
     return true;
   }
@@ -320,6 +337,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
     }
   }
   
+  //与block命令相关的函数
   BlockCommand getReplicationCommand(int maxTransfers) {
     List<BlockTargetPair> blocktargetlist = replicateBlocks.poll(maxTransfers);
     return blocktargetlist == null? null:
@@ -481,6 +499,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   
   /**
    * Decrements counter for number of blocks scheduled.
+   * 每次做block调度完成后，计数量要相应减去1
    */
   void decBlocksScheduled() {
     if (prevApproxBlocksScheduled > 0) {
