@@ -32,8 +32,10 @@ class BlocksMap {
         
   /**
    * Internal class for block metadata.
+   * blockMap内部类保存block信息元数据
    */
   static class BlockInfo extends Block implements LightWeightGSet.LinkedElement {
+    //数据块信息所属的INode文件节点
     private INodeFile          inode;
 
     /** For implementing {@link LightWeightGSet.LinkedElement} interface */
@@ -46,11 +48,14 @@ class BlocksMap {
      * and triplets[3*i+1] and triplets[3*i+2] are references 
      * to the previous and the next blocks, respectively, in the 
      * list of blocks belonging to this data-node.
+     * triplets对象数组保存同一数据节点上的连续的block块。triplets[3*i]保存的是当前的数据节点
+     * triplets[3*i+1]和triplets[3*i+2]保存的则是一前一后的block信息
      */
     private Object[] triplets;
 
     BlockInfo(Block blk, int replication) {
       super(blk);
+      //因为还需要同时保存前后的数据块信息，所以这里会乘以3
       this.triplets = new Object[3*replication];
       this.inode = null;
     }
@@ -58,7 +63,8 @@ class BlocksMap {
     INodeFile getINode() {
       return inode;
     }
-
+    
+    //获取数据块所在数据接节点信息
     DatanodeDescriptor getDatanode(int index) {
       assert this.triplets != null : "BlockInfo is not initialized";
       assert index >= 0 && index*3 < triplets.length : "Index is out of bound";
@@ -68,7 +74,8 @@ class BlocksMap {
                 "DatanodeDescriptor is expected at " + index*3;
       return node;
     }
-
+    
+    //获取前一数据块信息
     BlockInfo getPrevious(int index) {
       assert this.triplets != null : "BlockInfo is not initialized";
       assert index >= 0 && index*3+1 < triplets.length : "Index is out of bound";
@@ -78,7 +85,8 @@ class BlocksMap {
                 "BlockInfo is expected at " + index*3;
       return info;
     }
-
+    
+    //获取后一数据块信息
     BlockInfo getNext(int index) {
       assert this.triplets != null : "BlockInfo is not initialized";
       assert index >= 0 && index*3+2 < triplets.length : "Index is out of bound";
@@ -88,7 +96,8 @@ class BlocksMap {
                 "BlockInfo is expected at " + index*3;
       return info;
     }
-
+    
+    //设置数据节点方法
     void setDatanode(int index, DatanodeDescriptor node) {
       assert this.triplets != null : "BlockInfo is not initialized";
       assert index >= 0 && index*3 < triplets.length : "Index is out of bound";
@@ -147,6 +156,7 @@ class BlocksMap {
 
     /**
      * Add data-node this block belongs to.
+     * 添加新的数据节点块
      */
     boolean addNode(DatanodeDescriptor node) {
       if(findDatanode(node) >= 0) // the node is already there
@@ -161,6 +171,7 @@ class BlocksMap {
 
     /**
      * Remove data-node from the block.
+     * 移除数据节点操作，把目标数据块移除，移除位置用最后一个块的信息替代，然后移除末尾块
      */
     boolean removeNode(DatanodeDescriptor node) {
       int dnIndex = findDatanode(node);
@@ -171,9 +182,11 @@ class BlocksMap {
       // find the last not null node
       int lastNode = numNodes()-1; 
       // replace current node triplet by the lastNode one 
+      //用末尾块替代当前块
       setDatanode(dnIndex, getDatanode(lastNode));
       setNext(dnIndex, getNext(lastNode)); 
       setPrevious(dnIndex, getPrevious(lastNode)); 
+      //设置末尾块为空
       // set the last triplet to null
       setDatanode(lastNode, null);
       setNext(lastNode, null); 
@@ -212,6 +225,7 @@ class BlocksMap {
       this.setPrevious(dnIndex, null);
       this.setNext(dnIndex, head);
       if(head != null)
+      	//插入当前的块到列表首部
         head.setPrevious(head.findDatanode(dn), this);
       return this;
     }
@@ -282,9 +296,11 @@ class BlocksMap {
       this.nextLinkedElement = next;
     }
   }
-
+  
+  //数据节点迭代器，用以获取数据块以及他的副本所在的数据节点列表
   private static class NodeIterator implements Iterator<DatanodeDescriptor> {
     private BlockInfo blockInfo;
+    //数据节点id
     private int nextIdx = 0;
       
     NodeIterator(BlockInfo blkInfo) {
@@ -297,6 +313,7 @@ class BlocksMap {
     }
 
     public DatanodeDescriptor next() {
+      //通过id递增获取副本所在数据节点
       return blockInfo.getDatanode(nextIdx++);
     }
 
@@ -312,6 +329,7 @@ class BlocksMap {
 
   BlocksMap(int initialCapacity, float loadFactor) {
     this.capacity = computeCapacity();
+    //用轻量级的GSet实现block与blockInfo的映射存储
     this.blocks = new LightWeightGSet<Block, BlockInfo>(capacity);
   }
 
