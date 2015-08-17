@@ -195,12 +195,18 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   private static final long DELEGATION_TOKEN_REMOVER_SCAN_INTERVAL =
     TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS);
   private DelegationTokenSecretManager dtSecretManager;
-
+  
+  //等待复制的数据块副本数
   volatile long pendingReplicationBlocksCount = 0L;
+  //已损坏的副本数数目
   volatile long corruptReplicaBlocksCount = 0L;
+  //正在被复制的块副本数
   volatile long underReplicatedBlocksCount = 0L;
+  //正在被调度的副本数
   volatile long scheduledReplicationBlocksCount = 0L;
+  //多余数据块副本数
   volatile long excessBlocksCount = 0L;
+  //等待被删除的副本数
   volatile long pendingDeletionBlocksCount = 0L;
   //
   // Stores the correct file name hierarchy
@@ -216,6 +222,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
 
   //
   // Store blocks-->datanodedescriptor(s) map of corrupt replicas
+  // 已损坏的副本数图
   //
   public CorruptReplicasMap corruptReplicas = new CorruptReplicasMap();
     
@@ -249,6 +256,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   // on the machine in question.
   // Mapping: StorageID -> ArrayList<Block>
   //
+  //最近无效的块列表,数据节点到块的映射
   private Map<String, Collection<Block>> recentInvalidateSets = 
     new TreeMap<String, Collection<Block>>();
 
@@ -258,6 +266,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   // eventually remove these extras.
   // Mapping: StorageID -> TreeSet<Block>
   //
+  // 过剩的数据副本块图,也是数据节点到数据块的映射
   Map<String, Collection<Block>> excessReplicateMap = 
     new TreeMap<String, Collection<Block>>();
 
