@@ -29,10 +29,15 @@ import org.apache.hadoop.raid.RaidCodec;
 /* Class for keeping track of under replication blocks
  * Blocks have replication priority, with priority 0 indicating the highest
  * Blocks have only one replicas has the highest
+ * 此类对正在操作的副本块进行了跟踪
+ * 并对此设定了不同的副本优先级队列,只有1个队列拥有最高优先级
  */
 class UnderReplicatedBlocks implements Iterable<BlockInfo> {
+  //定义了4种level级别的队列
   static final int LEVEL = 4;
+  //损坏副本数队列在最后一个队列中
   static public final int QUEUE_WITH_CORRUPT_BLOCKS = LEVEL-1;
+  //定了副本优先级队列
   private List<LightWeightLinkedSet<BlockInfo>> priorityQueues
       = new ArrayList<LightWeightLinkedSet<BlockInfo>>();
   
@@ -40,6 +45,7 @@ class UnderReplicatedBlocks implements Iterable<BlockInfo> {
       
   /* constructor */
   UnderReplicatedBlocks() {
+    //初始化时根据level数,构造队列
     for(int i=0; i<LEVEL; i++) {
       priorityQueues.add(new LightWeightLinkedSet<BlockInfo>());
     }
@@ -48,6 +54,7 @@ class UnderReplicatedBlocks implements Iterable<BlockInfo> {
 
   /**
    * Empty the queues.
+   * 相应的清空队列操作
    */
   void clear() {
     for(int i=0; i<LEVEL; i++) {
@@ -57,6 +64,7 @@ class UnderReplicatedBlocks implements Iterable<BlockInfo> {
   }
 
   /* Return the number of under replication blocks excluding corrupt blocks */
+  //获取队列副本数,就是从各个队列中区取
   synchronized int getNonCorruptUnderReplicatedBlocksCount() {
     int size = 0;
     for (int i=0; i<QUEUE_WITH_CORRUPT_BLOCKS; i++) {
@@ -124,20 +132,24 @@ class UnderReplicatedBlocks implements Iterable<BlockInfo> {
                           int curReplicas, 
                           int decommissionedReplicas,
                           int expectedReplicas) {
+    //副本数为负数或是副本数超过预期值,都属于异常情况,归结为损坏队列中
     if (curReplicas<0 || curReplicas>=expectedReplicas) {
       return LEVEL; // no need to replicate
     } else if(curReplicas==0) {
       // If there are zero non-decommissioned replica but there are
       // some decommissioned replicas, then assign them highest priority
+      //如果数据节点正位于撤销操作中,以及最高优先级
       if (decommissionedReplicas > 0) {
         return 0;
       }
       return QUEUE_WITH_CORRUPT_BLOCKS; // keep these blocks in needed replication.
     } else if(curReplicas==1) {
+      //副本数只有1个的时候同样给予高优先级
       return isRaidedBlock(block) ? 1 : 0; // highest priority
     } else if(curReplicas*3<expectedReplicas) {
       return 1;
     } else {
+      //其他情况给及普通优先级
       return 2;
     }
   }
