@@ -287,6 +287,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
  */
   private UnderReplicatedBlocks neededReplications = new UnderReplicatedBlocks();
   // We also store pending replication-orders.
+  //待复制的block
   private PendingReplicationBlocks pendingReplications;
 
   public LeaseManager leaseManager = new LeaseManager(this); 
@@ -744,6 +745,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   }
 
   /* updates a block in under replication queue */
+  //更新副本请求队列，更新block复制请求
   synchronized void updateNeededReplications(Block block,
                         int curReplicasDelta, int expectedReplicasDelta) {
     NumberReplicas repl = countNodes(block);
