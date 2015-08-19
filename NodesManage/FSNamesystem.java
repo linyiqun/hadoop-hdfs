@@ -4499,9 +4499,12 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
 
   /** 
    * Keeps track of which datanodes/ipaddress are allowed to connect to the namenode.
+   * 如何判断节点是否包含在允许接入列表中的判断方法,exclude列表是同样的道理
    */
   private boolean inHostsList(DatanodeID node, String ipAddr) {
+    //从hostReader中读取最新的host列表
     Set<String> hostsList = hostsReader.getHosts();
+    //利用主机名去判断
     return (hostsList.isEmpty() || 
             (ipAddr != null && hostsList.contains(ipAddr)) ||
             hostsList.contains(node.getHost()) ||
@@ -4527,6 +4530,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
    * 2. Removed from hosts --> mark AdminState as decommissioned. 
    * 3. Added to exclude --> start decommission.
    * 4. Removed from exclude --> stop decommission.
+   * 重新从配置中读取节点列表,移除掉准备下线的列表等
    */
   public void refreshNodes(Configuration conf) throws IOException {
     checkSuperuserPrivilege();
@@ -4534,23 +4538,30 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     // Update the file names and refresh internal includes and excludes list
     if (conf == null)
       conf = new Configuration();
+    //重新读取配置文件中的dfs.hosts以及dfs.hosts.exclude属性
     hostsReader.updateFileNames(conf.get("dfs.hosts",""), 
                                 conf.get("dfs.hosts.exclude", ""));
     hostsReader.refresh();
     synchronized (this) {
+      //遍历数据节点
       for (Iterator<DatanodeDescriptor> it = datanodeMap.values().iterator();
            it.hasNext();) {
         DatanodeDescriptor node = it.next();
         // Check if not include.
+        //判断数据节点是否在允许的主机列表内
         if (!inHostsList(node, null)) {
+          //如果不是,则把此节点的状态设为Decommissioned,代表着此节点准备下线
           node.setDecommissioned();  // case 2.
         } else {
+           //入如果此节点是包含在不允许接入的列表名单中时
           if (inExcludedHostsList(node, null)) {
+            //判断此时状态是否为还没开始下线操作,如果是开始decommission
             if (!node.isDecommissionInProgress() && 
                 !node.isDecommissioned()) {
               startDecommission(node);   // case 3.
             }
           } else {
+            //如果是其他的情况,如果节点处于decommsion操作,则停止操作
             if (node.isDecommissionInProgress() || 
                 node.isDecommissioned()) {
               stopDecommission(node);   // case 4.
