@@ -25,10 +25,12 @@ import org.apache.hadoop.util.CyclicIteration;
 
 /**
  * Manage node decommissioning.
+ * 节点Decommission操作状态管理器
  */
 class DecommissionManager {
   static final Log LOG = LogFactory.getLog(DecommissionManager.class);
-
+  
+  //名字空间系统
   private final FSNamesystem fsnamesystem;
 
   DecommissionManager(FSNamesystem namesystem) {
@@ -36,9 +38,11 @@ class DecommissionManager {
   }
 
   /** Periodically check decommission status. */
+  //监控方法
   class Monitor implements Runnable {
     /** recheckInterval is how often namenode checks
      *  if a node has finished decommission
+     * 定期检查周期
      */
     private final long recheckInterval;
     /** The number of decommission nodes to check for each interval */
@@ -58,6 +62,7 @@ class DecommissionManager {
     public void run() {
       for(; fsnamesystem.isRunning(); ) {
         synchronized(fsnamesystem) {
+          //调用check()方法
           check();
         }
   
@@ -71,14 +76,18 @@ class DecommissionManager {
     
     private void check() {
       int count = 0;
+      //遍历每个数据节点
       for(Map.Entry<String, DatanodeDescriptor> entry
           : new CyclicIteration<String, DatanodeDescriptor>(
               fsnamesystem.datanodeMap, firstkey)) {
         final DatanodeDescriptor d = entry.getValue();
         firstkey = entry.getKey();
-
+ 
+        //如果数据节点正处于decommison操作的话,则做检查
         if (d.isDecommissionInProgress()) {
           try {
+            //调用fsnamesystem的checkDecommissionStateInternal方法,此方法内部又会调用isReplicationInProgress进行副本的
+            //情况判断
             fsnamesystem.checkDecommissionStateInternal(d);
           } catch(Exception e) {
             LOG.warn("entry=" + entry, e);
