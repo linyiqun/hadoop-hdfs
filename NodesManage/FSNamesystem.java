@@ -4270,6 +4270,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
 
   /**
    * Start decommissioning the specified datanode. 
+   * 对指定节点开始进行decommission操作
    */
   private void startDecommission (DatanodeDescriptor node) 
     throws IOException {
@@ -4277,10 +4278,12 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     if (!node.isDecommissionInProgress() && !node.isDecommissioned()) {
       LOG.info("Start Decommissioning node " + node.getName());
       node.startDecommission();
+      //设置节点decommison开始时间
       node.decommissioningStatus.setStartTime(now());
       //
       // all the blocks that reside on this node have to be 
       // replicated.
+      //检查此时的decommission操作状态
       checkDecommissionStateInternal(node);
     }
   }
@@ -4426,24 +4429,30 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   /**
    * Return true if there are any blocks on this node that have not
    * yet reached their replication factor. Otherwise returns false.
+   * 如果当前数据节点block块的副本系数还没有满足期望的副本数值值,则表明还要添加复制请求
    */
   private boolean isReplicationInProgress(DatanodeDescriptor srcNode) {
     boolean status = false;
     int underReplicatedBlocks = 0;
     int decommissionOnlyReplicas = 0;
     int underReplicatedInOpenFiles = 0;
-
+    
+    //遍历此节点上的所有数据块
     for(final Iterator<Block> i = srcNode.getBlockIterator(); i.hasNext(); ) {
       final Block block = i.next();
       INode fileINode = blocksMap.getINode(block);
 
       if (fileINode != null) {
         NumberReplicas num = countNodes(block);
+        //获取此数据块当前的副本数
         int curReplicas = num.liveReplicas();
+        //获取此副本块的期望副本块数
         int curExpectedReplicas = getReplication(block);
+        //如果期望副本块数大于当前副本块数,表明block还需要复制
         if (curExpectedReplicas > curReplicas) {
           // Log info about one block for this node which needs replication
           if (!status) {
+            //做状态的修改,表明block还需要复制
             status = true;
             logBlockReplicationInfo(block, srcNode, num);
           }
@@ -4462,6 +4471,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
             // after the startDecommission method has been executed. These
             // blocks were in flight when the decommission was started.
             //
+            //添加新的副本复制请求
             neededReplications.add(block, 
                                    curReplicas,
                                    num.decommissionedReplicas(),
@@ -4479,6 +4489,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   /**
    * Change, if appropriate, the admin state of a datanode to 
    * decommission completed. Return true if decommission is complete.
+   * decommision的状态检测是根据其上的副本量来衡量的
    */
   boolean checkDecommissionStateInternal(DatanodeDescriptor node) {
     //
@@ -4486,6 +4497,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     // node has reached their target replication factor.
     //
     if (node.isDecommissionInProgress()) {
+      //调用副本进度判断函数
       if (!isReplicationInProgress(node)) {
         node.setDecommissioned();
         LOG.info("Decommission complete for node " + node.getName());
