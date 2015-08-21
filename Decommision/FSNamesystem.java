@@ -2387,17 +2387,22 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
    * registered with the namenode without restarting the whole cluster.
    * 
    * @see org.apache.hadoop.hdfs.server.datanode.DataNode#register()
+   * 为datanode进行注册节点操作
    */
   public synchronized void registerDatanode(DatanodeRegistration nodeReg
                                             ) throws IOException {
+    //获取远程地址
     String dnAddress = Server.getRemoteAddress();
+    //如果地址为空
     if (dnAddress == null) {
       // Mostly called inside an RPC.
       // But if not, use address passed by the data-node.
+      //用主机名代替地址
       dnAddress = nodeReg.getHost();
     }      
 
     // check if the datanode is allowed to be connect to the namenode
+    //检查此数据节点是否被注册进名字节点中
     if (!verifyNodeRegistration(nodeReg, dnAddress)) {
       throw new DisallowedDatanodeException(nodeReg);
     }
@@ -2405,10 +2410,12 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     String hostName = nodeReg.getHost();
       
     // update the datanode's name with ip:port
+    //更新此数据节点的名字和端口
     DatanodeID dnReg = new DatanodeID(dnAddress + ":" + nodeReg.getPort(),
                                       nodeReg.getStorageID(),
                                       nodeReg.getInfoPort(),
                                       nodeReg.getIpcPort());
+    //执行更新操作
     nodeReg.updateRegInfo(dnReg);
     nodeReg.exportedKeys = getBlockKeys();
       
@@ -2418,27 +2425,33 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
                                  + " storage " + nodeReg.getStorageID());
 
     DatanodeDescriptor nodeS = datanodeMap.get(nodeReg.getStorageID());
+    //取出当前存在的数据节点,也就是已经存在的注册节点
     DatanodeDescriptor nodeN = host2DataNodeMap.getDatanodeByName(nodeReg.getName());
-      
+    
+    //如果名字节点之前已经注册过此节点,说明这个节点是使用新的存储标识进行注册
     if (nodeN != null && nodeN != nodeS) {
       NameNode.LOG.info("BLOCK* NameSystem.registerDatanode: "
                         + "node from name: " + nodeN.getName());
       // nodeN previously served a different data storage, 
       // which is not served by anybody anymore.
+      //移除掉早期的信息
       removeDatanode(nodeN);
       // physically remove node from datanodeMap
+      //将节点从datanodeMap中移除
       wipeDatanode(nodeN);
       nodeN = null;
     }
 
     if (nodeS != null) {
       if (nodeN == nodeS) {
+        //如果是同一个节点,不需要移除掉原有的datanode信息,直接进行重启
         // The same datanode has been just restarted to serve the same data 
         // storage. We do not need to remove old data blocks, the delta will
         // be calculated on the next block report from the datanode
         NameNode.stateChangeLog.debug("BLOCK* NameSystem.registerDatanode: "
                                       + "node restarted.");
       } else {
+        //否在进行存储信息的更新替换
         // nodeS is found
         /* The registering datanode is a replacement node for the existing 
           data storage, which from now on will be served by a new node.
@@ -2476,6 +2489,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     } 
 
     // this is a new datanode serving a new data storage
+    //判断到这里说明此节点是一个新的数据节点,分配新的存储ID
     if (nodeReg.getStorageID().equals("")) {
       // this data storage has never been registered
       // it is either empty or was created by pre-storageID version of DFS
