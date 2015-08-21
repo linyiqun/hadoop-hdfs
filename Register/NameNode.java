@@ -966,10 +966,13 @@ public class NameNode implements ClientProtocol, DatanodeProtocol,
   // DatanodeProtocol
   ////////////////////////////////////////////////////////////////
   /** 
+   * 名字节点的注册方法,调用的是FSNameSystem方法
    */
   public DatanodeRegistration register(DatanodeRegistration nodeReg
                                        ) throws IOException {
+    //首先做版本验证 
     verifyVersion(nodeReg.getVersion());
+    //调用namesystem的注册节点方法
     namesystem.registerDatanode(nodeReg);
       
     return nodeReg;
