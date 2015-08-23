@@ -982,6 +982,7 @@ public class NameNode implements ClientProtocol, DatanodeProtocol,
    * Data node notify the name node that it is alive 
    * Return an array of block-oriented commands for the datanode to execute.
    * This will be either a transfer or a delete operation.
+   * 数据节点调用此方法进行心跳信息的发送
    */
   public DatanodeCommand[] sendHeartbeat(DatanodeRegistration nodeReg,
                                        long capacity,
@@ -989,7 +990,9 @@ public class NameNode implements ClientProtocol, DatanodeProtocol,
                                        long remaining,
                                        int xmitsInProgress,
                                        int xceiverCount) throws IOException {
+    //对节点注册信息的确认
     verifyRequest(nodeReg);
+    //然后再次调用fsnamesystem的handleHeartbeat方法
     return namesystem.handleHeartbeat(nodeReg, capacity, dfsUsed, remaining,
         xceiverCount, xmitsInProgress);
   }
@@ -1073,6 +1076,7 @@ public class NameNode implements ClientProtocol, DatanodeProtocol,
    * 
    * @param nodeReg data node registration
    * @throws IOException
+   * 数据节点请求信息的，在于注册ID的确认和数据节点版本号的认证
    */
   public void verifyRequest(DatanodeRegistration nodeReg) throws IOException {
     verifyVersion(nodeReg.getVersion());
