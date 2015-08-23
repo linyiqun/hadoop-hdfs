@@ -20,7 +20,7 @@ package org.apache.hadoop.hdfs.server.protocol;
 import java.io.*;
 
 import org.apache.hadoop.io.*;
-
+//DatanodeCommand继承自Writable序列化类，说明命令是被序列化传输的
 public abstract class DatanodeCommand implements Writable {
   static class Register extends DatanodeCommand {
     private Register() {super(DatanodeProtocol.DNA_REGISTER);}
@@ -47,7 +47,8 @@ public abstract class DatanodeCommand implements Writable {
 
   public static final DatanodeCommand REGISTER = new Register();
   public static final DatanodeCommand FINALIZE = new Finalize();
-
+  
+  //action保存了命令操作类型
   private int action;
   
   public DatanodeCommand() {
@@ -65,6 +66,7 @@ public abstract class DatanodeCommand implements Writable {
   ///////////////////////////////////////////
   // Writable
   ///////////////////////////////////////////
+  //DatanodeCommand将命令操作写在序列化流中
   public void write(DataOutput out) throws IOException {
     out.writeInt(this.action);
   }
