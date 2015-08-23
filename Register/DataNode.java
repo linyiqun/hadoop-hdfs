@@ -874,6 +874,7 @@ public class DataNode extends Configured
   /**
    * Main loop for the DataNode.  Runs until shutdown,
    * forever calling remote NameNode functions.
+   * datanode在循环中不断向名字节点发送心跳信息 
    */
   public void offerService() throws Exception {
      
@@ -900,7 +901,9 @@ public class DataNode extends Configured
           // -- Total capacity
           // -- Bytes remaining
           //
+         //向名字节点发送此时节点的一些信息，dfs使用量，剩余使用量信息等
           lastHeartbeat = startTime;
+          //调用namenode.sendHeartbeat进行心跳信息的发送，返回数据节点的操作命令
           DatanodeCommand[] cmds = namenode.sendHeartbeat(dnRegistration,
                                                        data.getCapacity(),
                                                        data.getDfsUsed(),
@@ -909,10 +912,12 @@ public class DataNode extends Configured
                                                        getXceiverCount());
           myMetrics.addHeartBeat(now() - startTime);
           //LOG.info("Just sent heartbeat, with name " + localName);
+          //进行返回命令的处理，如果没有成功不进行后续block块上报工作
           if (!processCommand(cmds))
             continue;
         }
             
+        //检测新接收到的block
         // check if there are newly received blocks
         Block [] blockArray=null;
         String [] delHintArray=null;
@@ -935,6 +940,7 @@ public class DataNode extends Configured
           if(delHintArray == null || delHintArray.length != blockArray.length ) {
             LOG.warn("Panic: block array & delHintArray are not the same" );
           }
+          //将接收到的新block信息上报
           namenode.blockReceived(dnRegistration, blockArray, delHintArray);
           synchronized (receivedBlockList) {
             synchronized (delHints) {
@@ -1067,11 +1073,13 @@ public class DataNode extends Configured
    * 
    * @param cmds an array of datanode commands
    * @return true if further processing may be required or false otherwise. 
+   * 数据节点批量执行操作
    */
   private boolean processCommand(DatanodeCommand[] cmds) {
     if (cmds != null) {
       for (DatanodeCommand cmd : cmds) {
         try {
+        	//在命令组中，只要有一条命令执行出错，整个执行过程就算失败
           if (processCommand(cmd) == false) {
             return false;
           }
@@ -1088,12 +1096,14 @@ public class DataNode extends Configured
      * @param cmd
      * @return true if further processing may be required or false otherwise. 
      * @throws IOException
+     * 调用单条命令处理方法
      */
   private boolean processCommand(DatanodeCommand cmd) throws IOException {
     if (cmd == null)
       return true;
     final BlockCommand bcmd = cmd instanceof BlockCommand? (BlockCommand)cmd: null;
-
+    
+    //取出命令的action值类型，进行分别判断处理
     switch(cmd.getAction()) {
     case DatanodeProtocol.DNA_TRANSFER:
       // Send a copy of a block to another datanode
@@ -1101,6 +1111,7 @@ public class DataNode extends Configured
       myMetrics.incrBlocksReplicated(bcmd.getBlocks().length);
       break;
     case DatanodeProtocol.DNA_INVALIDATE:
+      //如果是无效块，则进行blockScanner类扫描删除操作
       //
       // Some local block(s) are obsolete and can be 
       // safely garbage-collected.
@@ -1122,6 +1133,7 @@ public class DataNode extends Configured
       this.shutdown();
       return false;
     case DatanodeProtocol.DNA_REGISTER:
+      //如果是注册命令，则调用注册操作
       // namenode requested a registration - at start or if NN lost contact
       LOG.info("DatanodeCommand action: DNA_REGISTER");
       if (shouldRun) {
@@ -1473,11 +1485,14 @@ public class DataNode extends Configured
     
   /** Start a single datanode daemon and wait for it to finish.
    *  If this thread is specifically interrupted, it will stop waiting.
+   * 数据节点启动的核心方法
    */
   public static void runDatanodeDaemon(DataNode dn) throws IOException {
     if (dn != null) {
       //register datanode
+      //首先注册节点
       dn.register();
+      //后续开启相应线程
       dn.dataNodeThread = new Thread(dn, dnThreadName);
       dn.dataNodeThread.setDaemon(true); // needed for JUnit testing
       dn.dataNodeThread.start();
