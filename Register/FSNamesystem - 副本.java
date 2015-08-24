@@ -2387,6 +2387,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
    * registered with the namenode without restarting the whole cluster.
    * 
    * @see org.apache.hadoop.hdfs.server.datanode.DataNode#register()
+   * 名字节点实现数据节点的注册操作
    */
   public synchronized void registerDatanode(DatanodeRegistration nodeReg
                                             ) throws IOException {
@@ -2417,16 +2418,21 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
                                  + "node registration from " + nodeReg.getName()
                                  + " storage " + nodeReg.getStorageID());
 
+    //取出主机相关信息
     DatanodeDescriptor nodeS = datanodeMap.get(nodeReg.getStorageID());
     DatanodeDescriptor nodeN = host2DataNodeMap.getDatanodeByName(nodeReg.getName());
-      
+    
+    //判断此节点之前是否已经存在
     if (nodeN != null && nodeN != nodeS) {
+     //此情况为数据节点存在,但是使用了新的存储ID
       NameNode.LOG.info("BLOCK* NameSystem.registerDatanode: "
                         + "node from name: " + nodeN.getName());
       // nodeN previously served a different data storage, 
       // which is not served by anybody anymore.
+      //移动掉旧的datanodeID信息
       removeDatanode(nodeN);
       // physically remove node from datanodeMap
+      //从物理层面的记录进行移除
       wipeDatanode(nodeN);
       nodeN = null;
     }
@@ -2455,6 +2461,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
                                       nodeReg.getStorageID());
       }
       // update cluster map
+      //更新集群的网络信息
       clusterMap.remove(nodeS);
       nodeS.updateRegInfo(nodeReg);
       nodeS.setHostName(hostName);
@@ -2476,6 +2483,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     } 
 
     // this is a new datanode serving a new data storage
+    //当此时确认为一个新的节点时,为新节点分配存储ID
     if (nodeReg.getStorageID().equals("")) {
       // this data storage has never been registered
       // it is either empty or was created by pre-storageID version of DFS
@@ -2485,6 +2493,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
                                     + "new storageID " + nodeReg.getStorageID() + " assigned.");
     }
     // register new datanode
+    //创建新的节点
     DatanodeDescriptor nodeDescr 
       = new DatanodeDescriptor(nodeReg, NetworkTopology.DEFAULT_RACK, hostName);
     resolveNetworkLocation(nodeDescr);
@@ -2492,6 +2501,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     clusterMap.add(nodeDescr);
       
     // also treat the registration message as a heartbeat
+    //将注册信息加入到心跳
     synchronized(heartbeats) {
       heartbeats.add(nodeDescr);
       nodeDescr.isAlive = true;
