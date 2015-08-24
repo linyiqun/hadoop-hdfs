@@ -661,6 +661,7 @@ public class DataNode extends Configured
    * 
    * @see FSNamesystem#registerDatanode(DatanodeRegistration)
    * @throws IOException
+   * æ•°æ®èŠ‚ç‚¹çš„æ³¨å†Œæ–¹æ³•,ä¼šè°ƒç”¨åˆ°namenodeä¸Šçš„æ³¨å†Œæ–¹æ³•
    */
   private void register() throws IOException {
     if (dnRegistration.getStorageID().equals("")) {
@@ -670,6 +671,7 @@ public class DataNode extends Configured
       try {
         // reset name to machineName. Mainly for web interface.
         dnRegistration.name = machineName + ":" + dnRegistration.getPort();
+        //è°ƒç”¨namenodeä¸Šçš„æ³¨å†Œæ–¹æ³•
         dnRegistration = namenode.register(dnRegistration);
         break;
       } catch(SocketTimeoutException e) {  // namenode is busy
@@ -874,7 +876,7 @@ public class DataNode extends Configured
   /**
    * Main loop for the DataNode.  Runs until shutdown,
    * forever calling remote NameNode functions.
-   * datanodeÔÚÑ­»·ÖĞ²»¶ÏÏòÃû×Ö½Úµã·¢ËÍĞÄÌøĞÅÏ¢ 
+   * datanodeåœ¨å¾ªç¯ä¸­ä¸æ–­å‘åå­—èŠ‚ç‚¹å‘é€å¿ƒè·³ä¿¡æ¯ 
    */
   public void offerService() throws Exception {
      
@@ -901,9 +903,9 @@ public class DataNode extends Configured
           // -- Total capacity
           // -- Bytes remaining
           //
-         //ÏòÃû×Ö½Úµã·¢ËÍ´ËÊ±½ÚµãµÄÒ»Ğ©ĞÅÏ¢£¬dfsÊ¹ÓÃÁ¿£¬Ê£ÓàÊ¹ÓÃÁ¿ĞÅÏ¢µÈ
+         //å‘åå­—èŠ‚ç‚¹å‘é€æ­¤æ—¶èŠ‚ç‚¹çš„ä¸€äº›ä¿¡æ¯ï¼Œdfsä½¿ç”¨é‡ï¼Œå‰©ä½™ä½¿ç”¨é‡ä¿¡æ¯ç­‰
           lastHeartbeat = startTime;
-          //µ÷ÓÃnamenode.sendHeartbeat½øĞĞĞÄÌøĞÅÏ¢µÄ·¢ËÍ£¬·µ»ØÊı¾İ½ÚµãµÄ²Ù×÷ÃüÁî
+          //è°ƒç”¨namenode.sendHeartbeatè¿›è¡Œå¿ƒè·³ä¿¡æ¯çš„å‘é€ï¼Œè¿”å›æ•°æ®èŠ‚ç‚¹çš„æ“ä½œå‘½ä»¤
           DatanodeCommand[] cmds = namenode.sendHeartbeat(dnRegistration,
                                                        data.getCapacity(),
                                                        data.getDfsUsed(),
@@ -912,12 +914,12 @@ public class DataNode extends Configured
                                                        getXceiverCount());
           myMetrics.addHeartBeat(now() - startTime);
           //LOG.info("Just sent heartbeat, with name " + localName);
-          //½øĞĞ·µ»ØÃüÁîµÄ´¦Àí£¬Èç¹ûÃ»ÓĞ³É¹¦²»½øĞĞºóĞøblock¿éÉÏ±¨¹¤×÷
+          //è¿›è¡Œè¿”å›å‘½ä»¤çš„å¤„ç†ï¼Œå¦‚æœæ²¡æœ‰æˆåŠŸä¸è¿›è¡Œåç»­blockå—ä¸ŠæŠ¥å·¥ä½œ
           if (!processCommand(cmds))
             continue;
         }
             
-        //¼ì²âĞÂ½ÓÊÕµ½µÄblock
+        //æ£€æµ‹æ–°æ¥æ”¶åˆ°çš„block
         // check if there are newly received blocks
         Block [] blockArray=null;
         String [] delHintArray=null;
@@ -940,7 +942,7 @@ public class DataNode extends Configured
           if(delHintArray == null || delHintArray.length != blockArray.length ) {
             LOG.warn("Panic: block array & delHintArray are not the same" );
           }
-          //½«½ÓÊÕµ½µÄĞÂblockĞÅÏ¢ÉÏ±¨
+          //å°†æ¥æ”¶åˆ°çš„æ–°blockä¿¡æ¯ä¸ŠæŠ¥
           namenode.blockReceived(dnRegistration, blockArray, delHintArray);
           synchronized (receivedBlockList) {
             synchronized (delHints) {
@@ -1073,13 +1075,13 @@ public class DataNode extends Configured
    * 
    * @param cmds an array of datanode commands
    * @return true if further processing may be required or false otherwise. 
-   * Êı¾İ½ÚµãÅúÁ¿Ö´ĞĞ²Ù×÷
+   * æ•°æ®èŠ‚ç‚¹æ‰¹é‡æ‰§è¡Œæ“ä½œ
    */
   private boolean processCommand(DatanodeCommand[] cmds) {
     if (cmds != null) {
       for (DatanodeCommand cmd : cmds) {
         try {
-        	//ÔÚÃüÁî×éÖĞ£¬Ö»ÒªÓĞÒ»ÌõÃüÁîÖ´ĞĞ³ö´í£¬Õû¸öÖ´ĞĞ¹ı³Ì¾ÍËãÊ§°Ü
+        	//åœ¨å‘½ä»¤ç»„ä¸­ï¼Œåªè¦æœ‰ä¸€æ¡å‘½ä»¤æ‰§è¡Œå‡ºé”™ï¼Œæ•´ä¸ªæ‰§è¡Œè¿‡ç¨‹å°±ç®—å¤±è´¥
           if (processCommand(cmd) == false) {
             return false;
           }
@@ -1096,14 +1098,14 @@ public class DataNode extends Configured
      * @param cmd
      * @return true if further processing may be required or false otherwise. 
      * @throws IOException
-     * µ÷ÓÃµ¥ÌõÃüÁî´¦Àí·½·¨
+     * è°ƒç”¨å•æ¡å‘½ä»¤å¤„ç†æ–¹æ³•
      */
   private boolean processCommand(DatanodeCommand cmd) throws IOException {
     if (cmd == null)
       return true;
     final BlockCommand bcmd = cmd instanceof BlockCommand? (BlockCommand)cmd: null;
     
-    //È¡³öÃüÁîµÄactionÖµÀàĞÍ£¬½øĞĞ·Ö±ğÅĞ¶Ï´¦Àí
+    //å–å‡ºå‘½ä»¤çš„actionå€¼ç±»å‹ï¼Œè¿›è¡Œåˆ†åˆ«åˆ¤æ–­å¤„ç†
     switch(cmd.getAction()) {
     case DatanodeProtocol.DNA_TRANSFER:
       // Send a copy of a block to another datanode
@@ -1111,7 +1113,7 @@ public class DataNode extends Configured
       myMetrics.incrBlocksReplicated(bcmd.getBlocks().length);
       break;
     case DatanodeProtocol.DNA_INVALIDATE:
-      //Èç¹ûÊÇÎŞĞ§¿é£¬Ôò½øĞĞblockScannerÀàÉ¨ÃèÉ¾³ı²Ù×÷
+      //å¦‚æœæ˜¯æ— æ•ˆå—ï¼Œåˆ™è¿›è¡ŒblockScannerç±»æ‰«æåˆ é™¤æ“ä½œ
       //
       // Some local block(s) are obsolete and can be 
       // safely garbage-collected.
@@ -1133,7 +1135,7 @@ public class DataNode extends Configured
       this.shutdown();
       return false;
     case DatanodeProtocol.DNA_REGISTER:
-      //Èç¹ûÊÇ×¢²áÃüÁî£¬Ôòµ÷ÓÃ×¢²á²Ù×÷
+      //å¦‚æœæ˜¯æ³¨å†Œå‘½ä»¤ï¼Œåˆ™è°ƒç”¨æ³¨å†Œæ“ä½œ
       // namenode requested a registration - at start or if NN lost contact
       LOG.info("DatanodeCommand action: DNA_REGISTER");
       if (shouldRun) {
@@ -1485,14 +1487,14 @@ public class DataNode extends Configured
     
   /** Start a single datanode daemon and wait for it to finish.
    *  If this thread is specifically interrupted, it will stop waiting.
-   * Êı¾İ½ÚµãÆô¶¯µÄºËĞÄ·½·¨
+   * æ•°æ®èŠ‚ç‚¹å¯åŠ¨çš„æ ¸å¿ƒæ–¹æ³•
    */
   public static void runDatanodeDaemon(DataNode dn) throws IOException {
     if (dn != null) {
       //register datanode
-      //Ê×ÏÈ×¢²á½Úµã
+      //é¦–å…ˆæ³¨å†ŒèŠ‚ç‚¹
       dn.register();
-      //ºóĞø¿ªÆôÏàÓ¦Ïß³Ì
+      //åç»­å¼€å¯ç›¸åº”çº¿ç¨‹
       dn.dataNodeThread = new Thread(dn, dnThreadName);
       dn.dataNodeThread.setDaemon(true); // needed for JUnit testing
       dn.dataNodeThread.start();
