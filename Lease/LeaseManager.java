@@ -53,6 +53,7 @@ import org.apache.hadoop.hdfs.protocol.FSConstants;
  * 2.9) Namenode removes f from the lease
  *      and removes the lease once all files have been removed
  * 2.10) Namenode commit changes to edit log
+ * 租约管理器,包含了与文件租约相关的许多方法
  */
 public class LeaseManager {
   public static final Log LOG = LogFactory.getLog(LeaseManager.class);
