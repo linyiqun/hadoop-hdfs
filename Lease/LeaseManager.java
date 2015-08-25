@@ -81,23 +81,28 @@ public class LeaseManager {
   private SortedMap<String, Lease> sortedLeasesByPath = new TreeMap<String, Lease>();
 
   LeaseManager(FSNamesystem fsnamesystem) {this.fsnamesystem = fsnamesystem;}
-
+  
+  //根据租约持有者获取其租约
   Lease getLease(String holder) {
+    //从租约列表中获取
     return leases.get(holder);
   }
   
   SortedSet<Lease> getSortedLeases() {return sortedLeases;}
 
   /** @return the lease containing src */
+  //根据路径获取租约
   public Lease getLeaseByPath(String src) {return sortedLeasesByPath.get(src);}
 
   /** @return the number of leases currently in the system */
   public synchronized int countLease() {return sortedLeases.size();}
 
   /** @return the number of paths contained in all leases */
+  //统计租约中存在的所有路径数
   synchronized int countPath() {
     int count = 0;
     for(Lease lease : sortedLeases) {
+      //进行计数的累加
       count += lease.getPaths().size();
     }
     return count;
@@ -105,31 +110,42 @@ public class LeaseManager {
   
   /**
    * Adds (or re-adds) the lease for the specified file.
+   * 添加指定文件的租约信息
    */
   synchronized Lease addLease(String holder, String src) {
+    //根据用户名获取其租约
     Lease lease = getLease(holder);
     if (lease == null) {
+      //如果租约为空
       lease = new Lease(holder);
+      //加入租约集合中
       leases.put(holder, lease);
       sortedLeases.add(lease);
     } else {
+      //如果存在此用户的租约,则进行租约更新
       renewLease(lease);
     }
+    //加入一条新的路径到租约的映射信息
     sortedLeasesByPath.put(src, lease);
+    //在此租约路径映射信息中加入新路径
     lease.paths.add(src);
     return lease;
   }
 
   /**
    * Remove the specified lease and src.
+   * 移除值指定路径以及租约
    */
   synchronized void removeLease(Lease lease, String src) {
+    //移动掉指定路径的映射信息
     sortedLeasesByPath.remove(src);
+    //租约内部移除此路径
     if (!lease.removePath(src)) {
       LOG.error(src + " not found in lease.paths (=" + lease.paths + ")");
     }
-
+    
     if (!lease.hasPath()) {
+      //根据租约持有者移除指定租约
       leases.remove(lease.holder);
       if (!sortedLeases.remove(lease)) {
         LOG.error(lease + " not found in sortedLeases");
@@ -139,6 +155,7 @@ public class LeaseManager {
 
   /**
    * Reassign lease for file src to the new holder.
+   * 租约重分配方法,等价于先移除后添加的方法
    */
   synchronized Lease reassignLease(Lease lease, String src, String newHolder) {
     assert newHolder != null : "new lease holder is null";
