@@ -59,22 +59,25 @@ public class LeaseManager {
   public static final Log LOG = LogFactory.getLog(LeaseManager.class);
 
   private final FSNamesystem fsnamesystem;
-
+  
+  //租约软超时时间
   private long softLimit = FSConstants.LEASE_SOFTLIMIT_PERIOD;
+  //租约硬超时时间
   private long hardLimit = FSConstants.LEASE_HARDLIMIT_PERIOD;
 
   //
   // Used for handling lock-leases
   // Mapping: leaseHolder -> Lease
-  //
+  //租约持有者到租约的映射图,保存在treeMap图中
   private SortedMap<String, Lease> leases = new TreeMap<String, Lease>();
   // Set of: Lease
+  //全部租约图
   private SortedSet<Lease> sortedLeases = new TreeSet<Lease>();
 
   // 
   // Map path names to leases. It is protected by the sortedLeases lock.
   // The map stores pathnames in lexicographical order.
-  //
+  //路径租约图映射关系
   private SortedMap<String, Lease> sortedLeasesByPath = new TreeMap<String, Lease>();
 
   LeaseManager(FSNamesystem fsnamesystem) {this.fsnamesystem = fsnamesystem;}
