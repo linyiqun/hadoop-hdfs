@@ -212,9 +212,13 @@ public class LeaseManager {
    * checks in.  If the client dies and allows its lease to
    * expire, all the corresponding locks can be released.
    *************************************************************/
+   //每条租约记录信息，只能被单一的客户端占有
   class Lease implements Comparable<Lease> {
+    //租约信息客户持有者
     private final String holder;
+    //租约最后更新时间
     private long lastUpdate;
+    //此租约内所打开的文件，维护一个客户端打开的所有文件
     private final Collection<String> paths = new TreeSet<String>();
   
     /** Only LeaseManager object can create a lease */
@@ -310,7 +314,8 @@ public class LeaseManager {
       paths.add(newpath);
     }
   }
-
+  
+  //更改租约，就是进行租约替换操作
   synchronized void changeLease(String src, String dst,
       String overwrite, String replaceBy) {
     if (LOG.isDebugEnabled()) {
@@ -321,6 +326,7 @@ public class LeaseManager {
     }
 
     final int len = overwrite.length();
+    //遍历租约列表
     for(Map.Entry<String, Lease> entry : findLeaseWithPrefixPath(src, sortedLeasesByPath)) {
       final String oldpath = entry.getKey();
       final Lease lease = entry.getValue();
@@ -375,6 +381,7 @@ public class LeaseManager {
    * Monitor checks for leases that have expired,
    * and disposes of them.
    ******************************************************/
+  //租约过期监控检测线程
   class Monitor implements Runnable {
     final String name = getClass().getSimpleName();
 
@@ -382,6 +389,7 @@ public class LeaseManager {
     public void run() {
       for(; fsnamesystem.isRunning(); ) {
         synchronized(fsnamesystem) {
+          //执行checkLeases方法
           checkLeases();
         }
 
@@ -399,11 +407,14 @@ public class LeaseManager {
   /** Check the leases beginning from the oldest. */
   synchronized void checkLeases() {
     for(; sortedLeases.size() > 0; ) {
+      //获取距离目前最晚的租约时间开始
       final Lease oldest = sortedLeases.first();
+      //如果最晚的时间是否超过硬超时时间
       if (!oldest.expiredHardLimit()) {
         return;
       }
 
+      //到了这步，说明已经发生租约超时
       LOG.info("Lease " + oldest + " has expired hard limit");
 
       final List<String> removing = new ArrayList<String>();
@@ -411,10 +422,12 @@ public class LeaseManager {
       // internalReleaseLease() removes paths corresponding to empty files,
       // i.e. it needs to modify the collection being iterated over
       // causing ConcurrentModificationException
+      //获取此租约管理的文件路径
       String[] leasePaths = new String[oldest.getPaths().size()];
       oldest.getPaths().toArray(leasePaths);
       for(String p : leasePaths) {
         try {
+          //进行租约释放
           fsnamesystem.internalReleaseLeaseOne(oldest, p);
         } catch (IOException e) {
           LOG.error("Cannot release the path "+p+" in the lease "+oldest, e);
