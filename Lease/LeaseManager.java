@@ -437,11 +437,13 @@ public class LeaseManager {
           //进行租约释放
           fsnamesystem.internalReleaseLeaseOne(oldest, p);
         } catch (IOException e) {
+          // 如果是租约释放失败的情况加入移除列表中
           LOG.error("Cannot release the path "+p+" in the lease "+oldest, e);
           removing.add(p);
         }
       }
-
+      
+      //进行移除租约记录的remove操作
       for(String p : removing) {
         removeLease(oldest, p);
       }
