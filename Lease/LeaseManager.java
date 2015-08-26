@@ -193,14 +193,19 @@ public class LeaseManager {
 
   /**
    * Renew the lease(s) held by the given client
+   * 客户端更新租约操作
    */
   synchronized void renewLease(String holder) {
+    //获取客户端持有者对应的租约
     renewLease(getLease(holder));
   }
   synchronized void renewLease(Lease lease) {
     if (lease != null) {
+      //首先进行列表租约移除
       sortedLeases.remove(lease);
+      //更新时间
       lease.renew();
+      //再进行添加
       sortedLeases.add(lease);
     }
   }
@@ -233,6 +238,7 @@ public class LeaseManager {
     }
 
     /** Only LeaseManager object can renew a lease */
+    //根据租约最后的检测时间
     private void renew() {
       this.lastUpdate = FSNamesystem.now();
     }
@@ -350,7 +356,8 @@ public class LeaseManager {
       removeLease(entry.getValue(), entry.getKey());    
     }
   }
-
+  
+  //根据前缀进行租约记录的过滤查找
   static private List<Map.Entry<String, Lease>> findLeaseWithPrefixPath(
       String prefix, SortedMap<String, Lease> path2lease) {
     if (LOG.isDebugEnabled()) {
