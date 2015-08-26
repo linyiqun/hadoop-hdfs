@@ -1192,11 +1192,13 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
    * 
    * @throws IOException if file name is invalid
    *         {@link FSDirectory#isValidToCreate(String)}.
+   * 命名系统打开一个新的文件
    */
   void startFile(String src, PermissionStatus permissions,
                  String holder, String clientMachine,
                  boolean overwrite, boolean createParent, short replication, long blockSize
                 ) throws IOException {
+    //调用startFileInternal方法
     startFileInternal(src, permissions, holder, clientMachine, overwrite, false,
                       createParent, replication, blockSize);
     getEditLog().logSync();
@@ -1255,6 +1257,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
 
     try {
       INode myFile = dir.getFileINode(src);
+      //在这里进行租约的恢复操作
       recoverLeaseInternal(myFile, src, holder, clientMachine, false);
 
       try {
@@ -1366,6 +1369,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     return false;
   }
   
+  //租约恢复操作
   private void recoverLeaseInternal(INode fileInode, 
       String src, String holder, String clientMachine, boolean force)
   throws IOException {
@@ -1375,12 +1379,14 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
       // If the file is under construction , then it must be in our
       // leases. Find the appropriate lease record.
       //
+      //根据客户端名称,取出其租约
       Lease lease = leaseManager.getLease(holder);
       //
       // We found the lease for this file. And surprisingly the original
       // holder is trying to recreate this file. This should never occur.
       //
       if (!force && lease != null) {
+        //如果租约记录中已经存在此文件路径,不允许重复创建记录操作
         Lease leaseFile = leaseManager.getLeaseByPath(src);
         if (leaseFile != null && leaseFile.equals(lease)) { 
           throw new AlreadyBeingCreatedException(
@@ -1391,7 +1397,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
       }
       //
       // Find the original holder.
-      //
+      //取出客户端的租约记录
       lease = leaseManager.getLease(pendingFile.clientName);
       if (lease == null) {
         throw new AlreadyBeingCreatedException(
@@ -1404,12 +1410,14 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
         // close only the file src
         LOG.info("recoverLease: recover lease " + lease + ", src=" + src +
                  " from client " + pendingFile.clientName);
+        //如果设置了强制执行参数,直接进行租约恢复操作
         internalReleaseLeaseOne(lease, src);
       } else {
         //
         // If the original holder has not renewed in the last SOFTLIMIT 
         // period, then start lease recovery.
         //
+        //如果没有设置,判断是否软超时,来进行租约恢复
         if (lease.expiredSoftLimit()) {
           LOG.info("startFile: recover lease " + lease + ", src=" + src +
               " from client " + pendingFile.clientName);
@@ -2131,6 +2139,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
    * This is invoked when a lease expires. On lease expiry, 
    * all the files that were written from that dfsclient should be
    * recovered.
+   * 进行租约恢复操作
    */
   void internalReleaseLease(Lease lease, String src) throws IOException {
     if (lease.hasPath()) {
@@ -2199,6 +2208,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     }
     // start lease recovery of the last block for this file.
     pendingFile.assignPrimaryDatanode();
+    //在末尾进行租约的重分配
     Lease reassignedLease = reassignLease(
       lease, src, HdfsConstants.NN_RECOVERY_LEASEHOLDER, pendingFile);
     leaseManager.renewLease(reassignedLease);
