@@ -1627,6 +1627,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
       throw new SafeModeException("Cannot abandon block " + b +
                                   " for fle" + src, safeMode);
     }
+    //移除块操作时进行租约检查,如果出现不符号要求的时候会抛异常
     INodeFileUnderConstruction file = checkLease(src, holder);
     dir.removeBlock(src, file, b);
     NameNode.stateChangeLog.debug("BLOCK* NameSystem.abandonBlock: "
@@ -1639,13 +1640,15 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   private INodeFileUnderConstruction checkLease(String src, String holder) 
                                                       throws IOException {
     INodeFile file = dir.getFileINode(src);
+    //继续调用同名方法
     checkLease(src, holder, file);
     return (INodeFileUnderConstruction)file;
   }
 
+  //下面是租约检查的核心逻辑方法
   private void checkLease(String src, String holder, INode file) 
                                                      throws IOException {
-
+    //如果正在操作的文件不存在,抛异常
     if (file == null || file.isDirectory()) {
       Lease lease = leaseManager.getLease(holder);
       throw new LeaseExpiredException("No lease on " + src +
@@ -1654,6 +1657,8 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
                                        "Holder " + holder + 
                                        " does not have any open files."));
     }
+    
+    //如果文件没有被打开,说明一定没有对应的租约记录存在,也抛异常
     if (!file.isUnderConstruction()) {
       Lease lease = leaseManager.getLease(holder);
       throw new LeaseExpiredException("No lease on " + src + 
@@ -1662,7 +1667,9 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
                                        "Holder " + holder + 
                                        " does not have any open files."));
     }
+
     INodeFileUnderConstruction pendingFile = (INodeFileUnderConstruction)file;
+    //判断文件所有者和客户端租约持有者是否一致
     if (holder != null && !pendingFile.getClientName().equals(holder)) {
       throw new LeaseExpiredException("Lease mismatch on " + src + " owned by "
           + pendingFile.getClientName() + " but is accessed by " + holder);
